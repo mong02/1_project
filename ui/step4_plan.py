@@ -1,38 +1,37 @@
 import streamlit as st
 
 def render_step_4():
-    st.header("🛠️ 마지막 옵션 설정")
-    
-    # --- 옵션 선택 공간 ---
-    with st.container():
-        seo = st.checkbox("🔍 SEO 최적화 (검색 노출 강화)")
-        human = st.checkbox("✍️ AI 티 제거 (강화된 자연스러움)")
-        package = st.checkbox("🎁 발행 패키지 (제목 3종, FAQ 포함)")
-        evidence = st.checkbox("📋 근거 라벨 표시 (신뢰도 업)")
+    st.header("🛠️ 최종 옵션 설정")
+    st.caption("더 완벽한 글 작성을 위한 마지막 설정을 선택하세요.")
 
+    # 1. 옵션 선택 영역 (체크박스)
+    #
+    with st.container():
+        st.markdown("###") # 약간의 여백
+        seo = st.checkbox("🔍 SEO 최적화 (검색 엔진 친화적 배치)")
+        human = st.checkbox("✍️ AI 티 제거 (강화된 문장 재구성)")
+        package = st.checkbox("🎁 발행 패키지 (제목 3종, FAQ, CTA 포함)")
+        evidence = st.checkbox("📋 근거 라벨 표시 (정보의 신뢰도 명시)")
+        
     st.markdown("---")
 
-    # --- 하단 버튼 ---
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("이전으로"):
-            st.session_state.step = 3
-            st.rerun()
-            
-    with col2:
-        if st.button("🚀 블로그 글 생성 시작", type="primary"):
-            # 1. 옵션값 저장
-            st.session_state.blog['options'] = {
-                "seo": seo,
-                "humanize": human,
-                "package": package,
-                "evidence": evidence
-            }
-            
-            # 2. 기존 생성 결과 초기화 (새로 생성하기 위함)
-            st.session_state.blog['result'] = None
-            
-            # 3. STEP 5로 이동
-            st.session_state.step = 5
-            st.rerun()
+    # 2. 생성 시작 버튼 (이전 버튼을 없애고 화면 중앙/전체에 배치)
+    # 버튼을 누르면 모든 설정값이 저장되고 Step 5로 이동합니다.
+    if st.button("🚀 블로그 글 생성하기", type="primary", use_container_width=True):
+        # [옵션 데이터 저장]
+        st.session_state.blog['options'] = {
+            "seo": seo,
+            "humanize": human,
+            "package": package,
+            "evidence": evidence
+        }
+        
+        # [기존 결과 초기화] 새 생성을 위해 이전 결과물을 비웁니다.
+        st.session_state.blog['result'] = None
+        
+        # [Step 5 이동]
+        st.session_state.step = 5
+        st.rerun()
+
+    # 하단 안내 문구
+    st.caption("※ '생성하기'를 누르면 AI가 설계안에 맞춰 집필을 시작합니다.")
