@@ -3,14 +3,17 @@
 # 역할 
 # 앱 시작점 / 지금 몇 단계인지 판단 / 공통 레이아웃 관리
 
+# app.py
+
 import streamlit as st
 from state import init_state, load_persona_from_disk
 
 from ui.step1_persona import render as render_step1
 from ui.step2_topic import render as render_step2
 from ui.step3_options import render as render_step3
-from ui.step4_preview import render as render_step4
-from ui.step4_preview import render as render_step5
+from ui.step4_plan import render as render_step4
+from ui.step5_preview import render as render_step5
+
 
 st.set_page_config(page_title="AI Blog Generator", layout="wide")
 
@@ -19,7 +22,7 @@ load_persona_from_disk()
 
 
 def build_ctx():
-    # ctx는 스키마에 존재하는 키만 담기
+    # ctx는 스키마 키만
     return {
         "step": st.session_state["step"],
         "persona": st.session_state["persona"],
@@ -32,10 +35,10 @@ def build_ctx():
     }
 
 
-step = st.session_state["step"]
+step = st.session_state.get("step", 1)
 
 if step == 1:
-    render_step1()
+    render_step1(build_ctx())
 elif step == 2:
     render_step2(build_ctx())
 elif step == 3:
@@ -43,7 +46,7 @@ elif step == 3:
 elif step == 4:
     render_step4(build_ctx())
 elif step == 5:
-    reder_step5(build_ctx())
+    render_step5(build_ctx())
 else:
     st.session_state["step"] = 1
     st.rerun()
