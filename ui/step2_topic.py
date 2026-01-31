@@ -12,38 +12,82 @@ if root_dir not in sys.path:
 import streamlit as st
 from config import POST_TYPES, HEADLINE_STYLES, CATEGORIES, SUBTOPICS_MAP
 
+
 try:
     from agents.image_agent import analyze_image_agent, parse_image_analysis
     from agents.write_agent import suggest_titles_agent
 except ImportError as e:
-    st.error(f"파일을 찾을 수 없습니다: {e}")
-    st.stop()
-st.markdown(
-    """
-    <style>
-    /* 선택된 Pills의 배경색과 글자색 변경 */
-    div[data-testid="stPills"] button[aria-selected="true"] {
-        background-color: #624AFF !important; /* 원하는 색 */
-        color: white !important;
-        border-color: #624AFF !important;
-    }
-    /* 마우스 올렸을 때 테두리 색 */
-    div[data-testid="stPills"] button:hover {
-        border-color: #624AFF !important;
-        color: #624AFF !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    # render 함수 내부에서 에러를 띄우기 위해 여기서 멈추지 않음
+    analyze_image_agent = None
+    suggest_titles_agent = None
+
+def inject_custom_css():
+    st.markdown(
+        """
+        <style>
+        /* 선택된 Pills의 배경색과 글자색 변경 */
+        div[data-testid="stPills"] button[aria-selected="true"] {
+            background-color: #624AFF !important; /* 원하는 색 */
+            color: white !important;
+            border-color: #624AFF !important;
+        }
+        /* 마우스 올렸을 때 테두리 색 */
+        div[data-testid="stPills"] button:hover {
+            border-color: #624AFF !important;
+            color: #624AFF !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# ====================================================
+# UI 내부 컴포넌트 분리 (코드 가독성 및 유지보수)
+# ====================================================
+
+def render_photo_intent_section(topic_flow):
+    """사진의 의도 입력 섹션 - 기본 스타일 사용"""
+    st.markdown('<div class="icon-label">사진의 의도 (선택)</div>', unsafe_allow_html=True)
+    topic_flow["images"]["intent"]["custom_text"] = st.text_input(
+        "사진의 의도",
+        value=topic_flow["images"]["intent"]["custom_text"],
+        placeholder="예: 여행의 설렘을 강조하고 싶어, 제품의 디테일을 보여주고 싶어",
+        label_visibility="collapsed"
+    )
+
+def render_title_input_section(topic_flow):
+    """글 제목 입력 섹션 - 16pt 볼드 강조 스타일 사용"""
+    st.markdown('<div class="icon-label" style="margin-top:15px; margin-bottom:15px;">🟪글 제목 또는 키워드</div>', unsafe_allow_html=True)
+    
+    # 전용 컨테이너 마커 적용 (CSS에서 .title-input-container 하위 요소를 스타일링함)
+    st.markdown('<div class="title-input-container">', unsafe_allow_html=True)
+    with st.container(border=False):
+        current_title = topic_flow["title"]["selected"] or ""
+        new_title = st.text_input(
+            "글 제목",
+            value=current_title,
+            placeholder="추천 제목을 선택하거나 직접 입력하세요.",
+            label_visibility="collapsed",
+            key="title_input_field"
+        )
+        if new_title != current_title:
+            topic_flow["title"]["selected"] = new_title
+            st.session_state["_auto_filled"] = False
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ====================================================
 # 단일 스크롤 페이지 - 모든 내용 통합
 # ====================================================
-def render_step3(ctx):
+def render_step2(ctx):
     """
     단일 스크롤 페이지: 주제 선정 + 제목 + 상세 설정 통합
     """
+    inject_custom_css()
+
+    if analyze_image_agent is None or suggest_titles_agent is None:
+        st.error("에이전트 파일을 불러올 수 없습니다. 경로를 확인해주세요.")
+        st.stop()
     # 세션 상태 로드
     topic_flow = st.session_state.get("topic_flow", None)
     options = st.session_state.get("options", None)
@@ -55,6 +99,10 @@ def render_step3(ctx):
     # _auto_filled 플래그 초기화
     if "_auto_filled" not in st.session_state:
         st.session_state["_auto_filled"] = False
+        
+    # AI 추천 주제 숨김/보임 상태 초기화
+    if "show_ai_reco" not in st.session_state:
+        st.session_state["show_ai_reco"] = True
 
     # ==========================
     # UI 색상 통일용 커스텀 CSS (Periwinkle Purple #624AFF)
@@ -102,13 +150,15 @@ def render_step3(ctx):
             margin-bottom: 20px !important;
         }
 
-        /* 3. Pills (알약 버튼) 스타일링 */
+        /* 3. Pills (알약 버튼) 스타일링 - 이미지 연계 */
         div[data-testid="stPills"] button {
-            border: 1px solid #E0E0E0 !important;
+            border: 1px solid #EDEDED !important; /* 더 연한 테두리 */
             background-color: white !important;
             color: #666 !important;
             padding: 8px 16px !important;
             border-radius: 20px !important;
+            font-size: 0.95rem !important;
+            font-weight: 500 !important;
             transition: all 0.2s ease !important;
         }
         div[data-testid="stPills"] button[aria-selected="true"] {
@@ -120,6 +170,7 @@ def render_step3(ctx):
         div[data-testid="stPills"] button:hover {
             border-color: var(--primary-color) !important;
             color: var(--primary-color) !important;
+            background-color: #F8F7FF !important;
         }
 
         /* 4. Primary 버튼 (하단 완료 버튼 등) */
@@ -167,77 +218,97 @@ def render_step3(ctx):
             padding: 12px 10px !important;
         }
 
-        /* AI 추천 주제 전체 컨테이너 (연보라 배경) - 콤팩트 레이아웃 */
+        /* AI 추천 주제 전체 컨테이너 (연보라 배경) - 이미지 스타일 반영 */
         div[data-testid="stVerticalBlock"]:has(> div:first-child .reco-marker) {
-            background-color: #F0F2FF !important;
-            border: 1px solid #D6CCFF !important;
-            border-radius: 16px !important;
-            padding: 8px 28px !important; /* 위아래 패딩을 8로 축소 */
-            margin-top: 10px !important;
-            margin-bottom: 25px !important;
+            background-color: #F2F5FF !important; /* 이미지와 유사한 아주 연한 블루/퍼플 */
+            border: 1px solid #E8EBF2 !important;
+            border-radius: 18px !important;
+            padding: 24px 30px !important; /* 여유로운 내부 간격 */
+            margin-top: 15px !important;
+            margin-bottom: 30px !important;
         }
         .reco-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px; /* 헤더 여백을 8로 조정 */
+            margin-bottom: 18px; 
             padding: 0;
         }
-        .reco-header h5 {
-            color: #624AFF !important;
-            font-size: 1.05rem !important;
-            margin: 0 !important;
-            font-weight: 600 !important;
-        }
         .ai-close-btn {
-            color: #AAA;
+            color: #ADB5BD; /* 이미지의 연한 회색 X */
             cursor: pointer;
-            font-size: 1.2rem;
-            line-height: 1;
+            font-size: 1.4rem;
+            font-weight: 300;
         }
 
-        /* 추천 제목 버튼 (일관된 8px 간격 적용) */
+        /* 추천 제목 버튼 (이미지 알약 형태 정밀 재현) */
         div.title-candidate-wrapper {
-            margin-bottom: 3px !important; /* 버튼들 사이의 간격도 8로 통일 */
+            margin-bottom: 12px !important; /* 버튼들 사이의 간격 확대 */
         }
         div.title-candidate-wrapper button {
             background-color: white !important;
-            border: 1px solid #D6CCFF !important;
-            border-radius: 30px !important;
-            padding: 12px 26px !important; /* 이미지의 알약 형태 재현 */
+            border: 1px solid #E6E9FC !important;
+            border-radius: 40px !important;
+            padding: 14px 28px !important;
             text-align: left !important;
             justify-content: flex-start !important;
-            color: #624AFF !important;
-            font-size: 1rem !important;
+            color: #4C51BF !important; /* 조금 더 차분한 퍼플 블루 */
+            font-size: 1.05rem !important;
             font-weight: 500 !important;
             width: auto !important;
             max-width: 100% !important;
-            box-shadow: 0 1px 3px rgba(98, 74, 255, 0.05) !important;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03) !important;
             transition: all 0.2s ease !important;
         }
         div.title-candidate-wrapper button:hover {
             border-color: #624AFF !important;
-            background-color: #F9F9FF !important;
-            box-shadow: 0 4px 10px rgba(98, 74, 255, 0.1) !important;
-            transform: translateX(4px);
+            background-color: #FFFFFF !important;
+            box-shadow: 0 6px 15px rgba(98, 74, 255, 0.08) !important;
+            transform: translateY(-1px);
         }
 
-        /* 분석 결과 전용 컨테이너 (누출 방지 강화) */
+        /* 분석 결과 전용 컨테이너 (이미지 스타일 동기화) */
         div[data-testid="stVerticalBlock"]:has(> div:first-child .analysis-marker) {
-            background-color: #F0F2FF !important;
-            border: 1px solid #D6CCFF !important;
-            border-radius: 16px !important;
-            padding: 24px !important;
+            background-color: #F2F5FF !important;
+            border: 1px solid #E8EBF2 !important;
+            border-radius: 18px !important;
+            padding: 24px 30px !important;
             margin-bottom: 20px !important;
         }
 
-        /* 텍스트 입력 필드 */
+        /* 기본 텍스트 입력 필드 (사진의 의도 등에 적용) */
         div[data-testid="stTextInput"] input {
             border-radius: 12px !important;
             border: 1px solid #EBE4FF !important;
-            padding: 18px 24px !important;
-            font-size: 1.15rem !important;
+            padding: 12px 20px !important;
+            font-size: 1rem !important;
             background-color: #FAFAFF !important;
+            color: #333 !important;
+        }
+        div[data-testid="stTextInput"] input::placeholder {
+            color: #BBBBBB !important;
+        }
+
+        /* 글 제목 입력창 전용 스타일 (이미지처럼 강조) */
+        .title-input-container div[data-testid="stTextInput"] input {
+            font-size: 18pt !important; /* 이미지 느낌에 맞춰 조금 더 확대 */
+            font-weight: 700 !important;
+            color: #444444 !important;
+            background-color: #FFFFFF !important;
+            padding-top: 25px !important;
+            padding-bottom: 25px !important;
+            padding-left: 0px !important; /* 이미지처럼 왼쪽 여백 최소화 가능 시 */
+            border: none !important; /* 이미지에서는 하단 보더나 아예 없는 느낌 */
+            border-bottom: 2px solid #EEEEEE !important;
+            border-radius: 0px !important;
+        }
+        .title-input-container div[data-testid="stTextInput"] input:focus {
+            border-bottom: 2px solid #624AFF !important;
+            box-shadow: none !important;
+        }
+        .title-input-container div[data-testid="stTextInput"] input::placeholder {
+            color: #CCCCCC !important;
+            font-weight: 700 !important;
         }
 
         /* 흰색 추천 주제 카드 (분석 결과 내부용) */
@@ -245,7 +316,7 @@ def render_step3(ctx):
             background-color: white !important;
             border: 1px solid #EBE4FF !important;
             border-radius: 12px !important;
-            padding: 15px 20px !important;
+            padding: 10px 18px !important; /* 패딩 축소 (15 -> 10) */
             margin-top: 0px !important;
         }
 
@@ -256,27 +327,71 @@ def render_step3(ctx):
             align-items: center;
         }
         button[key*="apply_mood_title_final"] {
-            width: auto !important;
-            min-width: 110px !important;
-            padding: 6px 16px !important;
-            border-radius: 8px !important;
+            width: 100% !important; /* 너비를 채워서 상단 버튼과 정렬감 유지 */
+            max-width: 120px !important;
+            padding: 6px 12px !important;
+            border-radius: 20px !important; /* 알약 형태 유지 */
         }
 
-        /* 헤더 텍스트 색상 */
-        h3, h4, h5 {
-            color: #333 !important;
-            font-weight: 600 !important;
-        }
-
-        /* 아이콘 라벨 스타일 (샘플 기준 그레이 텍스트) */
+        /* 섹션 라벨 (이미지 기준 연한 그레이) */
         .icon-label {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-weight: 500;
-            color: #888;
-            font-size: 0.95rem;
-            margin-bottom: 12px;
+            gap: 6px;
+            font-weight: 600;
+            color: #8E8E8E !important;
+            font-size: 1.15rem !important; /* 0.85rem에서 약 5px(0.3rem) 증가 */
+            margin-bottom: 15px !important;
+            letter-spacing: -0.01em;
+        }
+
+        /* 닫기 버튼 전용 스타일 및 주변 박스 제거 */
+        div.reco-header-container button {
+            background: transparent !important;
+            border: none !important;
+            color: #AAA !important;
+            padding: 0 !important;
+            font-size: 1.2rem !important;
+            line-height: 1 !important;
+            min-width: 20px !important;
+            width: 20px !important;
+            height: 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        div.reco-header-container button:hover {
+            color: #666 !important;
+            background: rgba(0,0,0,0.05) !important;
+            border-radius: 50% !important;
+        }
+
+        /* 추가 상세 설정 (Selectbox, TextArea) 스타일링 */
+        div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+            border-radius: 12px !important;
+            border: 1px solid #EBE4FF !important;
+            background-color: #FAFAFF !important;
+            padding: 2px 4px !important;
+        }
+        div[data-testid="stTextArea"] textarea {
+            border-radius: 12px !important;
+            border: 1px solid #EBE4FF !important;
+            background-color: #FAFAFF !important;
+            padding: 12px 20px !important;
+            font-size: 1rem !important;
+            color: #333 !important;
+        }
+
+        /* Expander 스타일 개선 */
+        div[data-testid="stExpander"] {
+            border: 1px solid #F0F0FF !important;
+            border-radius: 12px !important;
+            background-color: white !important;
+            box-shadow: none !important;
+        }
+        div[data-testid="stExpander"] summary {
+            font-weight: 600 !important;
+            color: #624AFF !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -324,14 +439,8 @@ def render_step3(ctx):
                 topic_flow["images"]["files"] = None
                 topic_flow["images"]["analysis"] = {"raw": "", "mood": "", "tags": []}
 
-        # 사진의 의도
-        st.markdown('<div class="icon-label">✉️ 사진의 의도 (선택)</div>', unsafe_allow_html=True)
-        topic_flow["images"]["intent"]["custom_text"] = st.text_input(
-            "사진의 의도",
-            value=topic_flow["images"]["intent"]["custom_text"],
-            placeholder="예: 여행의 설렘을 강조하고 싶어, 제품의 디테일을 보여주고 싶어",
-            label_visibility="collapsed"
-        )
+        # 사진의 의도 (코드 분리)
+        render_photo_intent_section(topic_flow)
 
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -365,31 +474,31 @@ def render_step3(ctx):
             
             # 분석 결과 헤더 (샘플처럼 보라색 강조)
             st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <span style="color: #624AFF; font-size: 1.4rem;">✨</span>
                     <h4 style="margin: 0; color: #5D5CDE; font-size: 1.15rem; font-weight: 700;">분석 결과</h4>
                 </div>
-                <div style="margin-bottom: 20px;">
-                    <span style="font-weight: 700; color: #333; font-size: 1.2rem;">분위기: </span>
-                    <span style="color: #444; font-size: 1.15rem; line-height: 1.5;">{topic_flow['images']['analysis']['mood']}</span>
+                <div style="margin-bottom: 12px;">
+                    <span style="font-weight: 700; color: #333; font-size: 1.1rem;">분위기: </span>
+                    <span style="color: #444; font-size: 1.1rem; line-height: 1.5;">{topic_flow['images']['analysis']['mood']}</span>
                 </div>
             """, unsafe_allow_html=True)
             
             # 태그 (샘플 스타일)
             tags = topic_flow["images"]["analysis"].get("tags", [])
             if tags:
-                tag_html = "".join([f"<span style='display:inline-block; background:white; padding:7px 16px; border-radius:10px; margin-right:8px; margin-bottom:12px; font-size:0.95rem; border:1px solid #D6CCFF; color:#624AFF; font-weight:500;'>#{t.strip().replace('#','')}</span>" for t in tags])
-                st.markdown(f"<div style='margin-bottom:10px;'>{tag_html}</div>", unsafe_allow_html=True)
+                tag_html = "".join([f"<span style='display:inline-block; background:white; padding:5px 12px; border-radius:8px; margin-right:8px; margin-bottom:8px; font-size:0.9rem; border:1px solid #D6CCFF; color:#624AFF; font-weight:500;'>#{t.strip().replace('#','')}</span>" for t in tags])
+                st.markdown(f"<div style='margin-bottom:5px;'>{tag_html}</div>", unsafe_allow_html=True)
             
             # 내부 하얀색 추천 주제 카드
             with st.container():
                 st.markdown('<div class="recommendation-marker" style="display:none;"></div>', unsafe_allow_html=True)
-                c1, c2 = st.columns([0.76, 0.24], vertical_alignment="center")
+                c1, c2 = st.columns([0.72, 0.28], vertical_alignment="center") # 버튼 공간 확보
                 with c1:
-                    st.markdown(f'<div style="color: #624AFF; font-weight: 600; font-size: 1.05rem; margin-bottom: 6px;">추천 주제</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div style="color: #333; font-size: 1.1rem; line-height: 1.4; font-weight: 400;">"{topic_flow["images"]["analysis"]["mood"]}"</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="color: #624AFF; font-weight: 600; font-size: 1.3rem; margin-bottom: 2px;">추천 주제</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="color: #333; font-size: 1.05rem; line-height: 1.4; font-weight: 400;">"{topic_flow["images"]["analysis"]["mood"]}"</div>', unsafe_allow_html=True)
                 with c2:
-                    if st.button("제목적용 ↓", key="apply_mood_title_final", type="primary"):
+                    if st.button("제목적용 ↓", key="apply_mood_title_final", type="primary", use_container_width=True):
                          topic_flow["title"]["selected"] = topic_flow["images"]["analysis"]["mood"]
                          st.session_state["title_input_field"] = topic_flow["title"]["selected"]
                          st.session_state["_auto_filled"] = True
@@ -403,15 +512,11 @@ def render_step3(ctx):
     # 카테고리 대주제 박스 (흰색 배경 유지)
     with st.container():
         st.markdown('<div class="category-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="icon-label">카테고리 선택</div>', unsafe_allow_html=True)
+        st.markdown('<div class="icon-label">🟪카테고리 선택</div>', unsafe_allow_html=True)
         st.markdown('<div class="category-grid-marker" style="display:none;"></div>', unsafe_allow_html=True)
         
-        # 카테고리 목록 확장 (샘플 2 기준)
-        CATEGORIES_EXTENDED = [
-            "비즈니스/경제", "IT/기술", "생활/라이프",
-            "건강/자기계발", "교육/학습", "쇼핑/소비",
-            "자동차/교통", "취업/직장", "기타"
-        ]
+        # 카테고리 목록 확장 (샘플 2 기준) 
+        CATEGORIES_EXTENDED = CATEGORIES
 
         selected_cat = st.pills(
             "대주제",
@@ -461,18 +566,25 @@ def render_step3(ctx):
                     )
                     topic_flow["title"]["candidates"] = titles
                     st.session_state["last_gen_key"] = current_gen_key
+                    st.session_state["show_ai_reco"] = True # 새로운 추천 시 다시 보이기
                 st.rerun()
 
     # AI 추천 주제 영역 (카테고리 박스 밖으로 이동하여 독립적인 박스로 표시)
-    if topic_flow["title"]["candidates"]:
+    if topic_flow["title"]["candidates"] and st.session_state.get("show_ai_reco", True):
         with st.container():
             st.markdown('<div class="reco-marker" style="display:none;"></div>', unsafe_allow_html=True)
-            st.markdown(f"""
-                <div class="reco-header">
-                    <h5>AI 추천 주제 (클릭하여 적용)</h5>
-                    <div class="ai-close-btn">×</div>
-                </div>
-            """, unsafe_allow_html=True)
+            
+            # 헤더 영역: 텍스트와 닫기 버튼 배치
+            st.markdown('<div class="reco-header-container">', unsafe_allow_html=True)
+            h1, h2 = st.columns([0.94, 0.06])
+            with h1:
+                st.markdown(f'<div style="color: #624AFF; font-size: 1.15rem; font-weight: 600; font-family: \'Inter\', sans-serif;">AI 추천 주제 (클릭하여 적용)</div>', unsafe_allow_html=True)
+            with h2:
+                if st.button("X", key="close_reco_btn", type="tertiary"):
+                    st.session_state["show_ai_reco"] = False
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div style="margin-bottom: 15px;"></div>', unsafe_allow_html=True)
             
             # 버튼들은 HTML 외부에 배치하여 클릭 이벤트 캡처
             for idx, t in enumerate(topic_flow["title"]["candidates"]):
@@ -488,63 +600,64 @@ def render_step3(ctx):
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # ─────────────────────────────────────────
-    # 3. 글 제목 입력
-    # ─────────────────────────────────────────
-    st.markdown('<div class="icon-label" style="margin-top:10px; margin-bottom:5px;">글 제목 또는 키워드</div>', unsafe_allow_html=True)
-    with st.container(border=False):
-        current_title = topic_flow["title"]["selected"] or ""
-        new_title = st.text_input(
-            "글 제목",
-            value=current_title,
-            placeholder="추천 제목을 선택하거나 직접 입력하세요.",
-            label_visibility="collapsed",
-            key="title_input_field"
-        )
-        if new_title != current_title:
-            topic_flow["title"]["selected"] = new_title
-            st.session_state["_auto_filled"] = False
+    # 3. 글 제목 입력 (코드 분리)
+    render_title_input_section(topic_flow)
 
     # ─────────────────────────────────────────
     # 5. 상세 설정
     # ─────────────────────────────────────────
     with st.container(border=True):
-        st.subheader("⚙️ 추가 상세 설정")
+        st.markdown('<div class="icon-label" style="margin-top:5px; margin-bottom:10px;">⚙️ 추가 상세 설정 (선택)</div>', unsafe_allow_html=True)
+        
         with st.expander("더 많은 설정 옵션 보기", expanded=False):
+            st.markdown('<div style="margin-top:15px;"></div>', unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             with c1:
                 try: idx_post = POST_TYPES.index(options["post_type"])
                 except: idx_post = 0
-                options["post_type"] = st.selectbox("글 성격", POST_TYPES, index=idx_post)
+                st.markdown('<div class="icon-label" style="margin-bottom:8px;">글 성격</div>', unsafe_allow_html=True)
+                options["post_type"] = st.selectbox("글 성격", POST_TYPES, index=idx_post, label_visibility="collapsed")
             with c2:
                 try: idx_head = HEADLINE_STYLES.index(options["headline_style"])
                 except: idx_head = 0
-                options["headline_style"] = st.selectbox("헤드라인 스타일", HEADLINE_STYLES, index=idx_head)
+                st.markdown('<div class="icon-label" style="margin-bottom:8px;">헤드라인 스타일</div>', unsafe_allow_html=True)
+                options["headline_style"] = st.selectbox("헤드라인 스타일", HEADLINE_STYLES, index=idx_head, label_visibility="collapsed")
 
-            st.markdown("")
-            st.caption("🔗 **이전 시리즈 연결 (선택)**")
+            st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="icon-label" style="margin-bottom:8px;">🔗 이전 시리즈 연결</div>', unsafe_allow_html=True)
             options["detail"]["series"]["prev_url"] = st.text_input(
                 "이전 글 URL",
                 value=options["detail"]["series"]["prev_url"] or "",
-                placeholder="https://...",
+                placeholder="연결할 이전 글의 URL을 입력하세요.",
                 label_visibility="collapsed"
             )
 
-            st.markdown("")
-            options["detail"]["region_scope"]["text"] = st.text_input(
-                "📍 지역 또는 범위 (선택)",
-                value=options["detail"]["region_scope"]["text"],
-                placeholder="예: 강남구, 서울 전지역"
-            )
-            options["detail"]["target_reader"]["text"] = st.text_input(
-                "👥 타겟 독자 (선택)",
-                value=options["detail"]["target_reader"]["text"],
-                placeholder="예: 30대 직장인"
-            )
+            st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown('<div class="icon-label" style="margin-bottom:8px;">📍 지역 또는 범위</div>', unsafe_allow_html=True)
+                options["detail"]["region_scope"]["text"] = st.text_input(
+                    "지역/범위",
+                    value=options["detail"]["region_scope"]["text"],
+                    placeholder="예: 강남구, 서울 전지역",
+                    label_visibility="collapsed"
+                )
+            with col2:
+                st.markdown('<div class="icon-label" style="margin-bottom:8px;">👥 타겟 독자</div>', unsafe_allow_html=True)
+                options["detail"]["target_reader"]["text"] = st.text_input(
+                    "타겟 독자",
+                    value=options["detail"]["target_reader"]["text"],
+                    placeholder="예: 30대 직장인",
+                    label_visibility="collapsed"
+                )
+
+            st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="icon-label" style="margin-bottom:8px;">🗒️ 추가 요청사항</div>', unsafe_allow_html=True)
             options["detail"]["extra_request"]["text"] = st.text_area(
-                "🗒️ 추가 요청",
+                "추가 요청",
                 value=options["detail"]["extra_request"]["text"],
-                placeholder="AI에게 전달할 추가 요청사항"
+                placeholder="AI에게 전달할 추가 요청사항을 자유롭게 입력하세요.",
+                label_visibility="collapsed"
             )
 
     # ─────────────────────────────────────────
@@ -555,10 +668,10 @@ def render_step3(ctx):
         if not topic_flow["title"]["selected"]:
             st.error("글 제목을 최소한으로라도 완성해주세요!")
         else:
-            st.session_state["step"] = 4
+            st.session_state["step"] = 3
             st.rerun()
 
 
-# render 함수를 render_step3로 연결
 def render(ctx):
-    render_step3(ctx)
+    """app.py에서 'render'라는 이름으로 호출할 때 대응"""
+    render_step2(ctx)
