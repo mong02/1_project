@@ -12,6 +12,8 @@ import json
 import os
 import streamlit as st
 from config import PROFILE_PATH, TARGET_CHARS, FINAL_OPTION_DEFAULTS
+from config import PROFILE_PATH, STEP2_PATH, STEP3_PATH, STEP4_PATH, TARGET_CHARS, FINAL_OPTION_DEFAULTS
+
 
 
 # 단일 스키마 사용 ! DEFAULT_STATE
