@@ -77,3 +77,6 @@ FINAL_OPTION_DEFAULTS = {
 
 ASSETS_DIR = "assets"
 PROFILE_PATH = f"{ASSETS_DIR}/persona_profile.json"
+STEP2_PATH = f"{ASSETS_DIR}/step2_snapshot.json"
+STEP3_PATH = f"{ASSETS_DIR}/step3_snapshot.json"
+STEP4_PATH = f"{ASSETS_DIR}/step4_snapshot.json"
