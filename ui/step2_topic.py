@@ -11,6 +11,7 @@ if root_dir not in sys.path:
 
 import streamlit as st
 from config import POST_TYPES, HEADLINE_STYLES, CATEGORIES, SUBTOPICS_MAP
+from state import reset_from_step
 
 
 try:
@@ -393,6 +394,26 @@ def render_step2(ctx):
             font-weight: 600 !important;
             color: #624AFF !important;
         }
+
+        /* 하단 뒤로가기 버튼 스타일 - 분석 결과 헤더와 같은 색상 (#5D5CDE) */
+        div.back-btn-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        div.back-btn-container button {
+            color: #5D5CDE !important;
+            background-color: transparent !important;
+            border: 1px solid #EBE4FF !important;
+            border-radius: 20px !important;
+            padding: 4px 12px !important;
+            font-size: 0.85rem !important;
+            transition: all 0.2s ease !important;
+        }
+        div.back-btn-container button:hover {
+            background-color: #F8F7FF !important;
+            border-color: #5D5CDE !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -668,8 +689,17 @@ def render_step2(ctx):
         if not topic_flow["title"]["selected"]:
             st.error("글 제목을 최소한으로라도 완성해주세요!")
         else:
+            # Step 3+ 데이터 초기화 후 이동
+            reset_from_step(3)
             st.session_state["step"] = 3
             st.rerun()
+
+    # 하단 뒤로가기 버튼 (작게 배치)
+    st.markdown('<div class="back-btn-container">', unsafe_allow_html=True)
+    if st.button("← 이전 단계", key="back_to_step1"):
+        st.session_state["step"] = 1
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render(ctx):
