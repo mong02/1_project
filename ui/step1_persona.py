@@ -3,6 +3,7 @@ import streamlit as st
 from config import MBTI
 from state import reset_from_step, mark_dirty, save_persona_to_disk
 
+
 def render(ctx):
     persona = st.session_state["persona"]
 
@@ -43,22 +44,30 @@ def render(ctx):
 
     st.divider()
 
-    # 3️⃣ MBTI (선택)
-    mbti_options = ["선택 안 함"] + list(MBTI.keys())
-    selected_mbti = persona["mbti"]["type"] or "선택 안 함"
+    # 3️⃣ MBTI (선택) - 박스 버튼형
+    st.subheader("MBTI (선택)")
+    st.caption("원하는 MBTI를 클릭하세요. 다시 누르면 해제됩니다.")
 
-    choice = st.selectbox(
-        "MBTI (선택)",
-        mbti_options,
-        index=mbti_options.index(selected_mbti)
-    )
+    mbti_list = list(MBTI.keys())
+    selected = persona["mbti"]["type"]
 
-    if choice == "선택 안 함":
-        persona["mbti"] = {"type": None, "style_desc": None}
-    else:
-        persona["mbti"]["type"] = choice
-        persona["mbti"]["style_desc"] = MBTI[choice]
-        st.caption(persona["mbti"]["style_desc"])
+    cols = st.columns(4)  # 4 x 4 = 16개
+
+    for idx, mbti in enumerate(mbti_list):
+        with cols[idx % 4]:
+            is_selected = (selected == mbti)
+            label = f"✅ {mbti}" if is_selected else mbti
+
+            if st.button(label, key=f"mbti_{mbti}", use_container_width=True):
+                if is_selected:
+                    persona["mbti"] = {"type": None, "style_desc": None}
+                else:
+                    persona["mbti"]["type"] = mbti
+                    persona["mbti"]["style_desc"] = MBTI[mbti]
+                st.rerun()
+
+    if persona["mbti"]["type"]:
+        st.info(persona["mbti"]["style_desc"])
 
     st.divider()
 
