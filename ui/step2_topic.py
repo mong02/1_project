@@ -470,12 +470,14 @@ def render_step2(ctx):
             if uploaded_files:
                 with st.spinner("🔍 사진을 분석하여 주제를 추출 중입니다..."):
                     first_file_bytes = uploaded_files[0].getvalue()
-                    analysis_result = analyze_image_agent(first_file_bytes)
-                    main, tags = parse_image_analysis(analysis_result)
+                    # 사용자 의도를 최우선으로 전달
+                    user_intent = topic_flow["images"]["intent"]["custom_text"] or ""
+                    analysis_result = analyze_image_agent(first_file_bytes, user_intent=user_intent)
+                    mood, tags = parse_image_analysis(analysis_result)
 
                     topic_flow["images"]["files"] = first_file_bytes
                     topic_flow["images"]["analysis"]["raw"] = analysis_result
-                    topic_flow["images"]["analysis"]["main"] = main
+                    topic_flow["images"]["analysis"]["mood"] = mood
                     topic_flow["images"]["analysis"]["tags"] = tags
                     st.toast("이미지 분석이 완료되었습니다!")
                     st.rerun()
@@ -483,7 +485,7 @@ def render_step2(ctx):
                 st.info("사진을 먼저 업로드해주세요.")
 
     # 분석 결과 표시
-    if topic_flow["images"]["analysis"]["main"]:
+    if topic_flow["images"]["analysis"]["mood"]:
         outer_container = st.container()
         with outer_container:
             st.markdown('<div class="analysis-marker" style="display:none;"></div>', unsafe_allow_html=True)
@@ -495,7 +497,7 @@ def render_step2(ctx):
                 </div>
                 <div style="margin-bottom: 12px;">
                     <span style="font-weight: 700; color: #333; font-size: 1.1rem;">분위기: </span>
-                    <span style="color: #444; font-size: 1.1rem; line-height: 1.5;">{topic_flow['images']['analysis']['main']}</span>
+                    <span style="color: #444; font-size: 1.1rem; line-height: 1.5;">{topic_flow['images']['analysis']['mood']}</span>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -516,12 +518,12 @@ def render_step2(ctx):
                         unsafe_allow_html=True
                     )
                     st.markdown(
-                        f'<div style="color: #333; font-size: 1.05rem; line-height: 1.4; font-weight: 400;">"{topic_flow["images"]["analysis"]["main"]}"</div>',
+                        f'<div style="color: #333; font-size: 1.05rem; line-height: 1.4; font-weight: 400;">"{topic_flow["images"]["analysis"]["mood"]}"</div>',
                         unsafe_allow_html=True
                     )
                 with c2:
                     if st.button("제목적용 ↓", key="apply_mood_title_final", type="primary", use_container_width=True):
-                        topic_flow["title"]["selected"] = topic_flow["images"]["analysis"]["main"]
+                        topic_flow["title"]["selected"] = topic_flow["images"]["analysis"]["mood"]
                         st.session_state["title_input_field"] = topic_flow["title"]["selected"]
                         st.session_state["_auto_filled"] = True
                         st.rerun()
