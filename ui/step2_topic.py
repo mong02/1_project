@@ -613,11 +613,13 @@ def render_step2(ctx):
                 topic_flow["category"]["selected_subtopic"] = effective_subtopic
 
                 with st.spinner("💡 AI가 제목을 설계 중입니다..."):
+                    # 분석 결과의 mood를 AI 추천에 반영
+                    analysis_mood = topic_flow["images"]["analysis"]["mood"] or ""
                     titles = suggest_titles_agent(
                         category=topic_flow["category"]["selected"],
                         subtopic=effective_subtopic,
-                        mood=topic_flow["images"]["analysis"]["raw"] or "일반적인",
-                        user_intent=topic_flow["images"]["intent"]["custom_text"]
+                        mood=analysis_mood or "일반적인",
+                        user_intent=analysis_mood  # 분석 결과를 의도로 전달
                     )
                     topic_flow["title"]["candidates"] = titles
                     st.session_state["last_gen_key"] = current_gen_key
