@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from agents.ollama_client import OllamaClient
 from config import MODEL_VISION, MODEL_TEXT
 
+# mood -> main 변경. 
 
 # ==============================================================================
 # [헬퍼] 더러운 JSON 문자열 청소부
@@ -75,7 +76,7 @@ def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
 반드시 아래 JSON만 출력하세요. 설명이나 마크다운 없이 순수 JSON만!
 
 {{
-    "main": "독자를 끌어당기는 매력적인 블로그 주제 한 문장",
+    "mood": "독자를 끌어당기는 매력적인 블로그 주제 한 문장",
     "tags": ["핵심태그1", "핵심태그2", "태그3", "태그4", "태그5"]
 }}
 """
@@ -102,13 +103,13 @@ def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
         print(f"JSON Parse Error: {e}")
         # 파싱 실패 시 기본값 반환
         return json.dumps({
-            "main": "사진 분석 결과를 가져오지 못했습니다.",
+            "mood": "사진 분석 결과를 가져오지 못했습니다.",
             "tags": ["사진", "일상"]
         }, ensure_ascii=False)
     except Exception as e:
         print(f"Image Analysis Error: {e}")
         return json.dumps({
-            "main": f"분석 오류: {str(e)}",
+            "mood": f"분석 오류: {str(e)}",
             "tags": []
         }, ensure_ascii=False)
 
@@ -125,13 +126,13 @@ def parse_image_analysis(analysis_result: str) -> Tuple[str, List[str]]:
         cleaned = _clean_json_text(analysis_result)
         data = json.loads(cleaned)
         
-        main = data.get("main", "")
+        mood = data.get("mood", "")
         tags = data.get("tags", [])
         
         # 태그에서 # 제거
         clean_tags = [str(t).replace("#", "").strip() for t in tags if t]
         
-        return main, clean_tags
+        return mood, clean_tags
         
     except Exception as e:
         print(f"Parse Error: {e}")
