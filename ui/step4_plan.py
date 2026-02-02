@@ -44,4 +44,4 @@ if __name__ == "__main__":
     if "step" not in st.session_state:
         st.session_state.step = 4
 
-    render_step_4()
+     render(ctx)
