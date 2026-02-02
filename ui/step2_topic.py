@@ -687,14 +687,6 @@ def render_step2(ctx):
                 st.markdown('<div class="icon-label" style="margin-bottom:8px;">헤드라인 스타일</div>', unsafe_allow_html=True)
                 options["headline_style"] = st.selectbox("헤드라인 스타일", HEADLINE_STYLES, index=idx_head, label_visibility="collapsed")
 
-            st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
-            st.markdown('<div class="icon-label" style="margin-bottom:8px;">🔗 이전 시리즈 연결</div>', unsafe_allow_html=True)
-            options["detail"]["series"]["prev_url"] = st.text_input(
-                "이전 글 URL",
-                value=options["detail"]["series"]["prev_url"] or "",
-                placeholder="연결할 이전 글의 URL을 입력하세요.",
-                label_visibility="collapsed"
-            )
 
             st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
             col1, col2 = st.columns(2)
