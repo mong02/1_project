@@ -33,15 +33,4 @@ def render(ctx):
         st.session_state["step"] = 5
         st.rerun()
 
-    # ✅ UX 안내 문구 (누락됐던 부분)
     st.caption("※ '생성하기'를 누르면 AI가 설계안에 맞춰 집필을 시작합니다.")
-
-import streamlit as st
-
-if __name__ == "__main__":
-    if "blog" not in st.session_state:
-        st.session_state.blog = {"options": {}, "result": None}
-    if "step" not in st.session_state:
-        st.session_state.step = 4
-
-     render(ctx)
