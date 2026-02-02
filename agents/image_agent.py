@@ -6,7 +6,6 @@ from typing import Dict, Any, List, Optional, Tuple
 from agents.ollama_client import OllamaClient
 from config import MODEL_VISION, MODEL_TEXT
 
-# mood -> main 변경. 
 
 # ==============================================================================
 # [헬퍼] 더러운 JSON 문자열 청소부
@@ -43,6 +42,7 @@ def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
 
     # 사용자 의도 반영 (최우선순위로 제목과 주제에 녹여야 함)
     intent_instruction = ""
+    print(f"[DEBUG] 전달받은 사용자 의도: '{user_intent}'")  # 디버그용
     if user_intent:
         intent_instruction = f"""
 
@@ -57,13 +57,15 @@ def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
 업로드된 이미지를 면밀히 분석하여 사람들이 읽고 싶어하는 블로그 주제를 도출해주세요.
 {intent_instruction}
 
+⚠️ 중요: 모든 출력은 반드시 한국어로 작성하세요! 영어 출력 금지!
+
 [분석 프로세스]
 1. 이미지에서 핵심 피사체, 분위기, 장소, 상황을 파악합니다.
 2. 사용자 의도가 있다면 이를 최우선으로, 이미지 요소와 자연스럽게 융합합니다.
 3. "이 사진으로 어떤 이야기를 쓸 수 있을까?"를 고민하며 독자를 끌어당기는 주제를 만듭니다.
 4. 클릭하고 싶은 매력적인 블로그 제목 스타일로 주제를 작성합니다.
 
-[좋은 주제 예시]
+[좋은 주제 예시 - 한국어로!]
 - 사진: 카페 + 의도: "혼자만의 시간" → "북적이는 도심 속, 나만의 조용한 아지트를 찾았다"
 - 사진: 음식 + 의도: "가성비" → "이 가격에 이 맛? 직장인 점심 맛집 인정"
 - 사진: 여행지 + 의도: 없음 → "인생샷 명소, 여기 안 가면 후회해요"
@@ -71,13 +73,14 @@ def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
 [나쁜 주제 예시 - 피하세요]
 - "카페에서 찍은 사진입니다" (단순 묘사)
 - "커피와 케이크" (키워드 나열)
+- 영어로 된 모든 출력 (절대 금지)
 
 [출력 형식]
-반드시 아래 JSON만 출력하세요. 설명이나 마크다운 없이 순수 JSON만!
+반드시 아래 JSON만 출력하세요. 한국어로! 설명이나 마크다운 없이 순수 JSON만!
 
 {{
-    "mood": "독자를 끌어당기는 매력적인 블로그 주제 한 문장",
-    "tags": ["핵심태그1", "핵심태그2", "태그3", "태그4", "태그5"]
+    "mood": "한국어로 작성한 매력적인 블로그 주제 한 문장",
+    "tags": ["한국어태그1", "한국어태그2", "태그3", "태그4", "태그5"]
 }}
 """
 
