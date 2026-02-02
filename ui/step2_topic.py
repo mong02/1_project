@@ -687,26 +687,6 @@ def render_step2(ctx):
                 st.markdown('<div class="icon-label" style="margin-bottom:8px;">헤드라인 스타일</div>', unsafe_allow_html=True)
                 options["headline_style"] = st.selectbox("헤드라인 스타일", HEADLINE_STYLES, index=idx_head, label_visibility="collapsed")
 
-            # 페르소나 프롬프트 입력란
-            st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
-            p1, p2 = st.columns(2)
-            with p1:
-                st.markdown('<div class="icon-label" style="margin-bottom:8px;">🎭 글 성격 페르소나</div>', unsafe_allow_html=True)
-                options["detail"]["post_type_persona"] = st.text_input(
-                    "글 성격 페르소나",
-                    value=options["detail"].get("post_type_persona", ""),
-                    placeholder="예: 친근한 동네 친구처럼 말하기",
-                    label_visibility="collapsed"
-                )
-            with p2:
-                st.markdown('<div class="icon-label" style="margin-bottom:8px;">✍️ 헤드라인 페르소나</div>', unsafe_allow_html=True)
-                options["detail"]["headline_persona"] = st.text_input(
-                    "헤드라인 페르소나",
-                    value=options["detail"].get("headline_persona", ""),
-                    placeholder="예: 호기심을 자극하는 질문형",
-                    label_visibility="collapsed"
-                )
-
             st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
             col1, col2 = st.columns(2)
             with col1:
