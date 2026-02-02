@@ -1,5 +1,7 @@
 # 카테고리 선택
 # 세부 주제/제목 후보 클릭
+# step2_topic.py
+
 import sys
 import os
 import re
@@ -13,7 +15,6 @@ import streamlit as st
 from config import POST_TYPES, HEADLINE_STYLES, CATEGORIES, SUBTOPICS_MAP
 from state import reset_from_step
 
-
 try:
     from agents.image_agent import analyze_image_agent, parse_image_analysis
     from agents.write_agent import suggest_titles_agent
@@ -21,6 +22,7 @@ except ImportError as e:
     # render 함수 내부에서 에러를 띄우기 위해 여기서 멈추지 않음
     analyze_image_agent = None
     suggest_titles_agent = None
+
 
 def inject_custom_css():
     st.markdown(
@@ -57,10 +59,11 @@ def render_photo_intent_section(topic_flow):
         label_visibility="collapsed"
     )
 
+
 def render_title_input_section(topic_flow):
     """글 제목 입력 섹션 - 16pt 볼드 강조 스타일 사용"""
     st.markdown('<div class="icon-label" style="margin-top:15px; margin-bottom:15px;">🟪글 제목 또는 키워드</div>', unsafe_allow_html=True)
-    
+
     # 전용 컨테이너 마커 적용 (CSS에서 .title-input-container 하위 요소를 스타일링함)
     st.markdown('<div class="title-input-container">', unsafe_allow_html=True)
     with st.container(border=False):
@@ -77,6 +80,7 @@ def render_title_input_section(topic_flow):
             st.session_state["_auto_filled"] = False
     st.markdown('</div>', unsafe_allow_html=True)
 
+
 # ====================================================
 # 단일 스크롤 페이지 - 모든 내용 통합
 # ====================================================
@@ -89,6 +93,7 @@ def render_step2(ctx):
     if analyze_image_agent is None or suggest_titles_agent is None:
         st.error("에이전트 파일을 불러올 수 없습니다. 경로를 확인해주세요.")
         st.stop()
+
     # 세션 상태 로드
     topic_flow = st.session_state.get("topic_flow", None)
     options = st.session_state.get("options", None)
@@ -100,7 +105,7 @@ def render_step2(ctx):
     # _auto_filled 플래그 초기화
     if "_auto_filled" not in st.session_state:
         st.session_state["_auto_filled"] = False
-        
+
     # AI 추천 주제 숨김/보임 상태 초기화
     if "show_ai_reco" not in st.session_state:
         st.session_state["show_ai_reco"] = True
@@ -111,7 +116,7 @@ def render_step2(ctx):
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        
+
         /* 1. 메인 포인트 컬러 설정 (보라색) */
         :root {
             --primary-color: #624AFF;
@@ -232,7 +237,7 @@ def render_step2(ctx):
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 18px; 
+            margin-bottom: 18px;
             padding: 0;
         }
         .ai-close-btn {
@@ -425,13 +430,12 @@ def render_step2(ctx):
         </div>
     """, unsafe_allow_html=True)
 
-    # ─────────────────────────────────────────
+    # -------------------------------------------------
     # 1. 이미지 업로드 섹션
-    # ─────────────────────────────────────────
+    # -------------------------------------------------
     with st.container(border=True):
         st.markdown('<div class="icon-label">📷 블로그 사진 추가 (선택)</div>', unsafe_allow_html=True)
 
-        # 멀티 파일 업로더
         uploaded_files = st.file_uploader(
             "여러 장 선택 가능",
             type=['png', 'jpg', 'jpeg'],
@@ -445,14 +449,12 @@ def render_step2(ctx):
                 uploaded_files = uploaded_files[:10]
 
             st.caption(f"사진 {len(uploaded_files)}장 선택됨")
-            
-            # 그리드 표시
+
             cols = st.columns(3)
             for idx, file in enumerate(uploaded_files):
                 with cols[idx % 3]:
                     st.image(file, caption=f"{idx+1}", use_container_width=True)
 
-            # 첫 번째 이미지 파일 바이트 저장 (분석용으로 대기)
             first_file_bytes = uploaded_files[0].getvalue()
         else:
             first_file_bytes = None
@@ -460,40 +462,32 @@ def render_step2(ctx):
                 topic_flow["images"]["files"] = None
                 topic_flow["images"]["analysis"] = {"raw": "", "mood": "", "tags": []}
 
-        # 사진의 의도 (코드 분리)
         render_photo_intent_section(topic_flow)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # 분석 버튼 (AI 제목 추천받기처럼 UI 변경)
+
         if st.button("✨ 사진 먼저 분석하기 (추천 주제 받기)", key="btn_analyze_first", type="primary", use_container_width=True):
-             if uploaded_files:
-                 with st.spinner("🔍 사진을 분석하여 주제를 추출 중입니다..."):
-                     # 첫 번째 사진 기반 분석 수행
-                     first_file_bytes = uploaded_files[0].getvalue()
-                     analysis_result = analyze_image_agent(first_file_bytes)
-                     mood, tags = parse_image_analysis(analysis_result)
-                     
-                     # 세션 상태 업데이트
-                     topic_flow["images"]["files"] = first_file_bytes
-                     topic_flow["images"]["analysis"]["raw"] = analysis_result
-                     topic_flow["images"]["analysis"]["mood"] = mood
-                     topic_flow["images"]["analysis"]["tags"] = tags
-                     st.toast("이미지 분석이 완료되었습니다!")
-                     st.rerun() # 레이아웃 갱신을 위해 rerun
-             else:
-                 st.info("사진을 먼저 업로드해주세요.")
+            if uploaded_files:
+                with st.spinner("🔍 사진을 분석하여 주제를 추출 중입니다..."):
+                    first_file_bytes = uploaded_files[0].getvalue()
+                    analysis_result = analyze_image_agent(first_file_bytes)
+                    mood, tags = parse_image_analysis(analysis_result)
 
+                    topic_flow["images"]["files"] = first_file_bytes
+                    topic_flow["images"]["analysis"]["raw"] = analysis_result
+                    topic_flow["images"]["analysis"]["mood"] = mood
+                    topic_flow["images"]["analysis"]["tags"] = tags
+                    st.toast("이미지 분석이 완료되었습니다!")
+                    st.rerun()
+            else:
+                st.info("사진을 먼저 업로드해주세요.")
 
-    # 분석 결과 표시 (업로드 컨테이너 밖으로 이동하여 너비를 카테고리 박스와 맞춤)
+    # 분석 결과 표시
     if topic_flow["images"]["analysis"]["mood"]:
-        # st.container()를 사용하여 불필요한 테두리 제거 (CSS로 배경 적용)
         outer_container = st.container()
         with outer_container:
-            # 마커 클래스 삽입 (보라색 박스용 - 공간 차지하지 않도록 style 추가)
             st.markdown('<div class="analysis-marker" style="display:none;"></div>', unsafe_allow_html=True)
-            
-            # 분석 결과 헤더 (샘플처럼 보라색 강조)
+
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <span style="color: #624AFF; font-size: 1.4rem;">✨</span>
@@ -504,39 +498,42 @@ def render_step2(ctx):
                     <span style="color: #444; font-size: 1.1rem; line-height: 1.5;">{topic_flow['images']['analysis']['mood']}</span>
                 </div>
             """, unsafe_allow_html=True)
-            
-            # 태그 (샘플 스타일)
+
             tags = topic_flow["images"]["analysis"].get("tags", [])
             if tags:
-                tag_html = "".join([f"<span style='display:inline-block; background:white; padding:5px 12px; border-radius:8px; margin-right:8px; margin-bottom:8px; font-size:0.9rem; border:1px solid #D6CCFF; color:#624AFF; font-weight:500;'>#{t.strip().replace('#','')}</span>" for t in tags])
+                tag_html = "".join([
+                    f"<span style='display:inline-block; background:white; padding:5px 12px; border-radius:8px; margin-right:8px; margin-bottom:8px; font-size:0.9rem; border:1px solid #D6CCFF; color:#624AFF; font-weight:500;'>#{t.strip().replace('#','')}</span>"
+                    for t in tags
+                ])
                 st.markdown(f"<div style='margin-bottom:5px;'>{tag_html}</div>", unsafe_allow_html=True)
-            
-            # 내부 하얀색 추천 주제 카드
+
             with st.container():
                 st.markdown('<div class="recommendation-marker" style="display:none;"></div>', unsafe_allow_html=True)
-                c1, c2 = st.columns([0.72, 0.28], vertical_alignment="center") # 버튼 공간 확보
+                c1, c2 = st.columns([0.72, 0.28], vertical_alignment="center")
                 with c1:
-                    st.markdown(f'<div style="color: #624AFF; font-weight: 600; font-size: 1.3rem; margin-bottom: 2px;">추천 주제</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div style="color: #333; font-size: 1.05rem; line-height: 1.4; font-weight: 400;">"{topic_flow["images"]["analysis"]["mood"]}"</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="color: #624AFF; font-weight: 600; font-size: 1.3rem; margin-bottom: 2px;">추천 주제</div>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        f'<div style="color: #333; font-size: 1.05rem; line-height: 1.4; font-weight: 400;">"{topic_flow["images"]["analysis"]["mood"]}"</div>',
+                        unsafe_allow_html=True
+                    )
                 with c2:
                     if st.button("제목적용 ↓", key="apply_mood_title_final", type="primary", use_container_width=True):
-                         topic_flow["title"]["selected"] = topic_flow["images"]["analysis"]["mood"]
-                         st.session_state["title_input_field"] = topic_flow["title"]["selected"]
-                         st.session_state["_auto_filled"] = True
-                         st.rerun()
+                        topic_flow["title"]["selected"] = topic_flow["images"]["analysis"]["mood"]
+                        st.session_state["title_input_field"] = topic_flow["title"]["selected"]
+                        st.session_state["_auto_filled"] = True
+                        st.rerun()
 
-
-    # ─────────────────────────────────────────
-    # ─────────────────────────────────────────
+    # -------------------------------------------------
     # 2. 카테고리 선택 & AI 제목 추천 (통합)
-    # ─────────────────────────────────────────
-    # 카테고리 대주제 박스 (흰색 배경 유지)
+    # -------------------------------------------------
     with st.container():
         st.markdown('<div class="category-marker" style="display:none;"></div>', unsafe_allow_html=True)
         st.markdown('<div class="icon-label">🟪카테고리 선택</div>', unsafe_allow_html=True)
         st.markdown('<div class="category-grid-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        
-        # 카테고리 목록 확장 (샘플 2 기준) 
+
         CATEGORIES_EXTENDED = CATEGORIES
 
         selected_cat = st.pills(
@@ -546,74 +543,117 @@ def render_step2(ctx):
             default=topic_flow["category"]["selected"],
             label_visibility="collapsed"
         )
-        
-        # 이전 생성 정보 기록
+
         if "last_gen_key" not in st.session_state:
             st.session_state["last_gen_key"] = None
 
-        # 카테고리가 바뀌면 제목 후보 초기화 및 세부주제 초기화
         if selected_cat and selected_cat != topic_flow["category"]["selected"]:
             topic_flow["category"]["selected"] = selected_cat
             topic_flow["category"]["selected_subtopic"] = None
-            topic_flow["title"]["candidates"] = [] # 초기화
+            topic_flow["title"]["candidates"] = []
             st.rerun()
 
         if topic_flow["category"]["selected"]:
             st.markdown('<div class="icon-label" style="margin-top:30px;">세부 주제</div>', unsafe_allow_html=True)
             current_cat = topic_flow["category"]["selected"]
-            # SUBTOPICS_MAP에 없으면 기본값 생성
             subtopics = SUBTOPICS_MAP.get(current_cat, ["기타", "트렌드", "정보공유", "궁금증", "도전기"])
-            
+
+            # 02.02 추가수정 : 기타/직접입력 선택 시 텍스트 입력으로 세부 주제를 받을 수 있도록 트리거 값 정의
+            custom_subtopic_triggers = {"기타", "주제 직접 입력"}
+
+            # 02.02 추가수정 : 이전에 직접 입력했던 값이 subtopics 목록에 없으면 pills 기본 선택값을 안전하게 보정
+            default_sub = topic_flow["category"]["selected_subtopic"]
+            if default_sub not in subtopics:
+                fallback = next((t for t in subtopics if t in custom_subtopic_triggers), None)
+                default_sub = fallback
+
+            # 02.02 추가수정 : pills default를 default_sub로 변경 (직접입력 후 rerun 시 UI 깨짐 방지)
             selected_sub = st.pills(
                 "세부 주제 목록",
                 subtopics,
                 selection_mode="single",
-                default=topic_flow["category"]["selected_subtopic"],
+                default=default_sub,
                 label_visibility="collapsed"
             )
 
-            # 세부주제까지 선택되었을 때만 트리거
-            current_gen_key = f"{topic_flow['category']['selected']}_{selected_sub}"
-            
-            if selected_sub and selected_sub != topic_flow["category"]["selected_subtopic"]:
-                topic_flow["category"]["selected_subtopic"] = selected_sub
-                # 자동 생성 실행
+            # 02.02 추가수정 : 직접입력 세부 주제 보관용 필드(custom_subtopic) 추가 및 로드
+            custom_subtopic = topic_flow["category"].get("custom_subtopic", "")
+            custom_input = custom_subtopic
+
+            # 02.02 추가수정 : 기타/직접입력 선택 시에만 입력창 노출
+            if selected_sub in custom_subtopic_triggers:
+                custom_input = st.text_input(
+                    "주제 직접 입력",
+                    value=custom_subtopic or "",
+                    placeholder="예: 혼자 떠나는 일본 소도시 여행기",
+                    label_visibility="collapsed"
+                )
+                # 02.02 추가수정 : 입력값 변경 시 topic_flow에 저장
+                if custom_input != custom_subtopic:
+                    topic_flow["category"]["custom_subtopic"] = custom_input
+
+            # 02.02 추가수정 : AI에 전달할 최종 세부 주제(effective_subtopic) 계산
+            if selected_sub in custom_subtopic_triggers:
+                effective_subtopic = custom_input.strip() if custom_input else None
+            else:
+                effective_subtopic = selected_sub
+                # 02.02 추가수정 : 일반 선택으로 돌아오면 이전 custom_subtopic을 비워서 상태 꼬임 방지
+                if custom_subtopic:
+                    topic_flow["category"]["custom_subtopic"] = ""
+
+            # 02.02 추가수정 : gen_key도 effective_subtopic 기준으로 생성(직접입력값 반영)
+            current_gen_key = None
+            if effective_subtopic:
+                current_gen_key = f"{topic_flow['category']['selected']}_{effective_subtopic}"
+
+            # 02.02 추가수정 : 트리거 조건을 selected_sub가 아닌 effective_subtopic 기준으로 변경(직접입력 반영)
+            if effective_subtopic and effective_subtopic != topic_flow["category"]["selected_subtopic"]:
+                topic_flow["category"]["selected_subtopic"] = effective_subtopic
+
                 with st.spinner("💡 AI가 제목을 설계 중입니다..."):
                     titles = suggest_titles_agent(
                         category=topic_flow["category"]["selected"],
-                        subtopic=selected_sub,
+                        subtopic=effective_subtopic,
                         mood=topic_flow["images"]["analysis"]["raw"] or "일반적인",
                         user_intent=topic_flow["images"]["intent"]["custom_text"]
                     )
                     topic_flow["title"]["candidates"] = titles
                     st.session_state["last_gen_key"] = current_gen_key
-                    st.session_state["show_ai_reco"] = True # 새로운 추천 시 다시 보이기
+                    st.session_state["show_ai_reco"] = True
                 st.rerun()
 
-    # AI 추천 주제 영역 (카테고리 박스 밖으로 이동하여 독립적인 박스로 표시)
+            # 02.02 추가수정 : 기타/직접입력 선택인데 입력값이 비어있으면 추천 후보/표시 상태를 초기화
+            elif selected_sub in custom_subtopic_triggers and not effective_subtopic:
+                if topic_flow["category"]["selected_subtopic"] is not None:
+                    topic_flow["category"]["selected_subtopic"] = None
+                    topic_flow["title"]["candidates"] = []
+                    st.session_state["show_ai_reco"] = False
+
+    # AI 추천 주제 영역
     if topic_flow["title"]["candidates"] and st.session_state.get("show_ai_reco", True):
         with st.container():
             st.markdown('<div class="reco-marker" style="display:none;"></div>', unsafe_allow_html=True)
-            
-            # 헤더 영역: 텍스트와 닫기 버튼 배치
+
             st.markdown('<div class="reco-header-container">', unsafe_allow_html=True)
             h1, h2 = st.columns([0.94, 0.06])
             with h1:
-                st.markdown(f'<div style="color: #624AFF; font-size: 1.15rem; font-weight: 600; font-family: \'Inter\', sans-serif;">AI 추천 주제 (클릭하여 적용)</div>', unsafe_allow_html=True)
+                st.markdown(
+                    '<div style="color: #624AFF; font-size: 1.15rem; font-weight: 600; font-family: \'Inter\', sans-serif;">AI 추천 주제 (클릭하여 적용)</div>',
+                    unsafe_allow_html=True
+                )
             with h2:
                 if st.button("X", key="close_reco_btn", type="tertiary"):
                     st.session_state["show_ai_reco"] = False
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('<div style="margin-bottom: 15px;"></div>', unsafe_allow_html=True)
-            
-            # 버튼들은 HTML 외부에 배치하여 클릭 이벤트 캡처
+
             for idx, t in enumerate(topic_flow["title"]["candidates"]):
-                # 앞에 숫자와 점(1. 2. 등) 제거 (LLM 응답 정제)
                 cleaned_t = re.sub(r'^\d+[\s.)-]+\s*', '', t).strip()
-                if not cleaned_t: continue
-                
-                st.markdown(f'<div class="title-candidate-wrapper">', unsafe_allow_html=True)
+                if not cleaned_t:
+                    continue
+
+                st.markdown('<div class="title-candidate-wrapper">', unsafe_allow_html=True)
                 if st.button(cleaned_t, key=f"title_btn_{idx}", use_container_width=False):
                     topic_flow["title"]["selected"] = cleaned_t
                     st.session_state["title_input_field"] = cleaned_t
@@ -621,26 +661,29 @@ def render_step2(ctx):
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. 글 제목 입력 (코드 분리)
     render_title_input_section(topic_flow)
 
-    # ─────────────────────────────────────────
+    # -------------------------------------------------
     # 5. 상세 설정
-    # ─────────────────────────────────────────
+    # -------------------------------------------------
     with st.container(border=True):
         st.markdown('<div class="icon-label" style="margin-top:5px; margin-bottom:10px;">⚙️ 추가 상세 설정 (선택)</div>', unsafe_allow_html=True)
-        
+
         with st.expander("더 많은 설정 옵션 보기", expanded=False):
             st.markdown('<div style="margin-top:15px;"></div>', unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             with c1:
-                try: idx_post = POST_TYPES.index(options["post_type"])
-                except: idx_post = 0
+                try:
+                    idx_post = POST_TYPES.index(options["post_type"])
+                except:
+                    idx_post = 0
                 st.markdown('<div class="icon-label" style="margin-bottom:8px;">글 성격</div>', unsafe_allow_html=True)
                 options["post_type"] = st.selectbox("글 성격", POST_TYPES, index=idx_post, label_visibility="collapsed")
             with c2:
-                try: idx_head = HEADLINE_STYLES.index(options["headline_style"])
-                except: idx_head = 0
+                try:
+                    idx_head = HEADLINE_STYLES.index(options["headline_style"])
+                except:
+                    idx_head = 0
                 st.markdown('<div class="icon-label" style="margin-bottom:8px;">헤드라인 스타일</div>', unsafe_allow_html=True)
                 options["headline_style"] = st.selectbox("헤드라인 스타일", HEADLINE_STYLES, index=idx_head, label_visibility="collapsed")
 
@@ -681,20 +724,18 @@ def render_step2(ctx):
                 label_visibility="collapsed"
             )
 
-    # ─────────────────────────────────────────
+    # -------------------------------------------------
     # 7. 하단 완료 버튼
-    # ─────────────────────────────────────────
+    # -------------------------------------------------
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("▷ AI 설계 내역 확인 및 생성 시작", type="primary", use_container_width=True):
         if not topic_flow["title"]["selected"]:
             st.error("글 제목을 최소한으로라도 완성해주세요!")
         else:
-            # Step 3+ 데이터 초기화 후 이동
             reset_from_step(3)
             st.session_state["step"] = 3
             st.rerun()
 
-    # 하단 뒤로가기 버튼 (작게 배치)
     st.markdown('<div class="back-btn-container">', unsafe_allow_html=True)
     if st.button("← 이전 단계", key="back_to_step1"):
         st.session_state["step"] = 1
