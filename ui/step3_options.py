@@ -2,6 +2,7 @@
 # 설계안 구조 UI
 
 
+# step3_topic.py
 import streamlit as st
 from datetime import datetime
 
@@ -72,8 +73,17 @@ def _ensure_step2_selected(topic_flow: dict) -> str | None:
 
 def _persona_line(persona: dict) -> str:
     role = persona.get("role_job") or "작성자"
-    mbti = (persona.get("mbti", {}) or {}).get("type")
-    tone = (persona.get("tone", {}) or {}).get("custom_text")
+    mbti_raw = persona.get("mbti")
+    if isinstance(mbti_raw, dict):
+        mbti = mbti_raw.get("type")
+    else:
+        mbti = mbti_raw
+
+    tone_raw = persona.get("tone")
+    if isinstance(tone_raw, dict):
+        tone = tone_raw.get("custom_text")
+    else:
+        tone = persona.get("tone_text")
 
     line = role
     if mbti:
@@ -84,7 +94,7 @@ def _persona_line(persona: dict) -> str:
 
 
 def render(ctx: dict):
-    # ctx는 app.py의 build_ctx() 구조 전제
+    # ctx는 app.py의 build_ctx() 구조를 전제로 합니다.
     persona = ctx.get("persona", {}) or {}
     topic_flow = ctx.get("topic_flow", {}) or {}
 
@@ -141,7 +151,7 @@ def render(ctx: dict):
 
     st.markdown("<div class='brief-wrap'>", unsafe_allow_html=True)
 
-    # 페르소나 표시
+    # Persona 표시
     st.markdown(
         f"""
         <div class="persona-pill">
@@ -245,7 +255,7 @@ def render(ctx: dict):
             st.rerun()
     with right_btn:
         if st.button("이대로 생성", type="primary", use_container_width=True):
-            save_step3_to_disk()
+            pass
             st.session_state["step"] = 4
             st.rerun()
 
