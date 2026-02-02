@@ -5,6 +5,9 @@
 import sys
 import os
 import re
+import json
+import requests
+from typing import Dict, Any, Optional
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
@@ -22,6 +25,71 @@ except ImportError as e:
     # render 함수 내부에서 에러를 띄우기 위해 여기서 멈추지 않음
     analyze_image_agent = None
     suggest_titles_agent = None
+
+
+# =========================================================
+# [주제어 후보 생성기] Ollama API 직접 호출
+# =========================================================
+OLLAMA_URL = "http://localhost:11434"
+from config import MODEL_TEXT
+TOPIC_MODEL = MODEL_TEXT  # config.py의 모델 사용
+
+def ollama_generate_topic_json(prompt: str, temperature: float = 0.4, seed: Optional[int] = 42) -> Dict[str, Any]:
+    """Ollama API를 직접 호출하여 JSON 형식으로 주제어 후보를 생성합니다."""
+    payload = {
+        "model": TOPIC_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "format": "json",
+        "options": {
+            "temperature": float(temperature),
+            **({"seed": int(seed)} if seed is not None else {}),
+        },
+    }
+    r = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=180)
+    r.raise_for_status()
+    text = (r.json().get("response") or "").strip()
+    return json.loads(text)
+
+
+def build_topic_prompt(category: str, subtopic: str, n: int = 5) -> str:
+    """주제어 후보 생성을 위한 프롬프트를 구성합니다."""
+    return f"""
+너는 여러 주제 중에서 실제로 독자가 끝까지 읽게 만드는 주제만 골라내는 블로그 기획자다.
+
+입력된 대주제와 세부 주제를 바탕으로,
+블로그 글 1편에 바로 사용할 수 있는
+'주제어 후보'를 {n}개 작성하라.
+
+주제어 작성 기준:
+- 각 후보는 한 문장으로 작성한다
+- 높임말을 사용하지 않는다
+- 제목처럼 짧지 않게 작성한다
+- 반드시 아래 요소 중 최소 3가지를 문장에 포함해야 한다
+  1) 구체적인 독자 또는 상황
+  2) 독자가 끝까지 읽게 만드는 문제 지점이나 판단 기준
+  3) 글에서 초점을 맞추는 범위
+  4) 이 글에서 다루지 않는 범위에 대한 암시
+- 문장을 읽으면 이 글이 "왜 끝까지 읽을 가치가 있는지"가 드러나야 한다
+- 블로그 본문을 바로 쓰기 위한 주제 정의 문장으로 작성한다
+- 서로 관점이 겹치지 않도록 각도를 명확히 다르게 잡는다
+
+금지:
+- 제목형 문구
+- 키워드 나열
+- 추상적인 표현 남용
+- "설명한다 / 다룬다 / 알아본다" 같은 메타 표현
+- 코드블록, 목록, 추가 설명
+
+출력 규칙:
+- 출력은 반드시 JSON 객체 하나
+- topic_candidates 필드만 포함
+- topic_candidates는 길이 {n}의 문자열 배열
+
+[INPUT]
+대주제: {category}
+세부 주제: {subtopic}
+""".strip()
 
 
 def inject_custom_css():
@@ -555,85 +623,92 @@ def render_step2(ctx):
             topic_flow["title"]["candidates"] = []
             st.rerun()
 
-        if topic_flow["category"]["selected"]:
-            st.markdown('<div class="icon-label" style="margin-top:30px;">세부 주제</div>', unsafe_allow_html=True)
-            current_cat = topic_flow["category"]["selected"]
-            subtopics = SUBTOPICS_MAP.get(current_cat, ["기타", "트렌드", "정보공유", "궁금증", "도전기"])
+        # 기본 카테고리 설정 (처음 로드 시)
+        if not topic_flow["category"]["selected"]:
+            topic_flow["category"]["selected"] = CATEGORIES[0]  # 첫 번째 카테고리를 기본값으로
 
-            # 02.02 추가수정 : 기타/직접입력 선택 시 텍스트 입력으로 세부 주제를 받을 수 있도록 트리거 값 정의
-            custom_subtopic_triggers = {"기타", "주제 직접 입력"}
+        # 세부주제 항상 표시
+        st.markdown('<div class="icon-label" style="margin-top:30px;">세부 주제</div>', unsafe_allow_html=True)
+        current_cat = topic_flow["category"]["selected"]
+        subtopics = SUBTOPICS_MAP.get(current_cat, ["기타", "트렌드", "정보공유", "궁금증", "도전기"])
 
-            # 02.02 추가수정 : 이전에 직접 입력했던 값이 subtopics 목록에 없으면 pills 기본 선택값을 안전하게 보정
-            default_sub = topic_flow["category"]["selected_subtopic"]
-            if default_sub not in subtopics:
-                fallback = next((t for t in subtopics if t in custom_subtopic_triggers), None)
-                default_sub = fallback
+        # 02.02 추가수정 : 기타/직접입력 선택 시 텍스트 입력으로 세부 주제를 받을 수 있도록 트리거 값 정의
+        custom_subtopic_triggers = {"기타", "주제 직접 입력"}
 
-            # 02.02 추가수정 : pills default를 default_sub로 변경 (직접입력 후 rerun 시 UI 깨짐 방지)
-            selected_sub = st.pills(
-                "세부 주제 목록",
-                subtopics,
-                selection_mode="single",
-                default=default_sub,
+        # 02.02 추가수정 : 이전에 직접 입력했던 값이 subtopics 목록에 없으면 pills 기본 선택값을 안전하게 보정
+        default_sub = topic_flow["category"]["selected_subtopic"]
+        if default_sub not in subtopics:
+            fallback = next((t for t in subtopics if t in custom_subtopic_triggers), None)
+            default_sub = fallback
+
+        # 02.02 추가수정 : pills default를 default_sub로 변경 (직접입력 후 rerun 시 UI 깨짐 방지)
+        selected_sub = st.pills(
+            "세부 주제 목록",
+            subtopics,
+            selection_mode="single",
+            default=default_sub,
+            label_visibility="collapsed"
+        )
+
+        # 02.02 추가수정 : 직접입력 세부 주제 보관용 필드(custom_subtopic) 추가 및 로드
+        custom_subtopic = topic_flow["category"].get("custom_subtopic", "")
+        custom_input = custom_subtopic
+
+        # 02.02 추가수정 : 기타/직접입력 선택 시에만 입력창 노출
+        if selected_sub in custom_subtopic_triggers:
+            custom_input = st.text_input(
+                "주제 직접 입력",
+                value=custom_subtopic or "",
+                placeholder="예: 혼자 떠나는 일본 소도시 여행기",
                 label_visibility="collapsed"
             )
+            # 02.02 추가수정 : 입력값 변경 시 topic_flow에 저장
+            if custom_input != custom_subtopic:
+                topic_flow["category"]["custom_subtopic"] = custom_input
 
-            # 02.02 추가수정 : 직접입력 세부 주제 보관용 필드(custom_subtopic) 추가 및 로드
-            custom_subtopic = topic_flow["category"].get("custom_subtopic", "")
-            custom_input = custom_subtopic
+        # 02.02 추가수정 : AI에 전달할 최종 세부 주제(effective_subtopic) 계산
+        if selected_sub in custom_subtopic_triggers:
+            effective_subtopic = custom_input.strip() if custom_input else None
+        else:
+            effective_subtopic = selected_sub
+            # 02.02 추가수정 : 일반 선택으로 돌아오면 이전 custom_subtopic을 비워서 상태 꼬임 방지
+            if custom_subtopic:
+                topic_flow["category"]["custom_subtopic"] = ""
 
-            # 02.02 추가수정 : 기타/직접입력 선택 시에만 입력창 노출
-            if selected_sub in custom_subtopic_triggers:
-                custom_input = st.text_input(
-                    "주제 직접 입력",
-                    value=custom_subtopic or "",
-                    placeholder="예: 혼자 떠나는 일본 소도시 여행기",
-                    label_visibility="collapsed"
-                )
-                # 02.02 추가수정 : 입력값 변경 시 topic_flow에 저장
-                if custom_input != custom_subtopic:
-                    topic_flow["category"]["custom_subtopic"] = custom_input
+        # 02.02 추가수정 : gen_key도 effective_subtopic 기준으로 생성(직접입력값 반영)
+        current_gen_key = None
+        if effective_subtopic:
+            current_gen_key = f"{topic_flow['category']['selected']}_{effective_subtopic}"
 
-            # 02.02 추가수정 : AI에 전달할 최종 세부 주제(effective_subtopic) 계산
-            if selected_sub in custom_subtopic_triggers:
-                effective_subtopic = custom_input.strip() if custom_input else None
-            else:
-                effective_subtopic = selected_sub
-                # 02.02 추가수정 : 일반 선택으로 돌아오면 이전 custom_subtopic을 비워서 상태 꼬임 방지
-                if custom_subtopic:
-                    topic_flow["category"]["custom_subtopic"] = ""
+        # 02.02 추가수정 : 트리거 조건을 selected_sub가 아닌 effective_subtopic 기준으로 변경(직접입력 반영)
+        if effective_subtopic and effective_subtopic != topic_flow["category"]["selected_subtopic"]:
+            topic_flow["category"]["selected_subtopic"] = effective_subtopic
 
-            # 02.02 추가수정 : gen_key도 effective_subtopic 기준으로 생성(직접입력값 반영)
-            current_gen_key = None
-            if effective_subtopic:
-                current_gen_key = f"{topic_flow['category']['selected']}_{effective_subtopic}"
-
-            # 02.02 추가수정 : 트리거 조건을 selected_sub가 아닌 effective_subtopic 기준으로 변경(직접입력 반영)
-            if effective_subtopic and effective_subtopic != topic_flow["category"]["selected_subtopic"]:
-                topic_flow["category"]["selected_subtopic"] = effective_subtopic
-
-                with st.spinner("💡 AI가 제목을 설계 중입니다..."):
-                    # 분석 결과의 mood를 AI 추천에 반영
-                    analysis_mood = topic_flow["images"]["analysis"]["mood"] or ""
-                    titles = suggest_titles_agent(
+            with st.spinner("💡 AI가 주제어 후보를 생성 중입니다..."):
+                try:
+                    prompt = build_topic_prompt(
                         category=topic_flow["category"]["selected"],
                         subtopic=effective_subtopic,
-                        mood=analysis_mood or "일반적인",
-                        user_intent=analysis_mood  # 분석 결과를 의도로 전달
+                        n=5
                     )
-                    topic_flow["title"]["candidates"] = titles
+                    result = ollama_generate_topic_json(prompt, temperature=st.session_state.get("ai_topic_temperature", 0.4), seed=42)
+                    candidates = result.get("topic_candidates", [])
+                    topic_flow["title"]["candidates"] = candidates
                     st.session_state["last_gen_key"] = current_gen_key
                     st.session_state["show_ai_reco"] = True
-                st.rerun()
+                except Exception as e:
+                    print(f"주제어 후보 생성 에러: {e}")
+                    topic_flow["title"]["candidates"] = ["AI 모델 연결 실패 - 직접 입력해주세요"]
+            st.rerun()
 
-            # 02.02 추가수정 : 기타/직접입력 선택인데 입력값이 비어있으면 추천 후보/표시 상태를 초기화
-            elif selected_sub in custom_subtopic_triggers and not effective_subtopic:
-                if topic_flow["category"]["selected_subtopic"] is not None:
-                    topic_flow["category"]["selected_subtopic"] = None
-                    topic_flow["title"]["candidates"] = []
-                    st.session_state["show_ai_reco"] = False
+        # 02.02 추가수정 : 기타/직접입력 선택인데 입력값이 비어있으면 추천 후보/표시 상태를 초기화
+        elif selected_sub in custom_subtopic_triggers and not effective_subtopic:
+            if topic_flow["category"]["selected_subtopic"] is not None:
+                topic_flow["category"]["selected_subtopic"] = None
+                topic_flow["title"]["candidates"] = []
+                st.session_state["show_ai_reco"] = False
 
-    # AI 추천 주제 영역
+    # AI 추천 주제어 후보 영역
     if topic_flow["title"]["candidates"] and st.session_state.get("show_ai_reco", True):
         with st.container():
             st.markdown('<div class="reco-marker" style="display:none;"></div>', unsafe_allow_html=True)
@@ -650,10 +725,26 @@ def render_step2(ctx):
                     st.session_state["show_ai_reco"] = False
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown('<div style="margin-bottom: 15px;"></div>', unsafe_allow_html=True)
+            
+            # 🌡️ 창의성 조절 슬라이더 (제목 바로 아래)
+            temp_col1, temp_col2 = st.columns([0.25, 0.75])
+            with temp_col1:
+                st.markdown('<span style="font-size: 0.85rem; color: #888;">🌡️ 창의성</span>', unsafe_allow_html=True)
+            with temp_col2:
+                st.session_state["ai_topic_temperature"] = st.slider(
+                    "Temperature",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=st.session_state.get("ai_topic_temperature", 0.4),
+                    step=0.1,
+                    key="ai_temp_slider",
+                    label_visibility="collapsed"
+                )
+            
+            st.markdown('<div style="margin-bottom: 10px;"></div>', unsafe_allow_html=True)
 
             for idx, t in enumerate(topic_flow["title"]["candidates"]):
-                cleaned_t = re.sub(r'^\d+[\s.)-]+\s*', '', t).strip()
+                cleaned_t = str(t).strip()
                 if not cleaned_t:
                     continue
 
