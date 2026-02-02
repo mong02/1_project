@@ -11,9 +11,7 @@ import copy
 import json
 import os
 import streamlit as st
-from config import PROFILE_PATH, TARGET_CHARS, FINAL_OPTION_DEFAULTS
 from config import PROFILE_PATH, STEP2_PATH, STEP3_PATH, STEP4_PATH, TARGET_CHARS, FINAL_OPTION_DEFAULTS
-
 
 
 # 단일 스키마 사용 ! DEFAULT_STATE
@@ -42,6 +40,7 @@ DEFAULT_STATE = {
             "selected": None,
             "subtopic_candidates": [],
             "selected_subtopic": None,
+            "custom_subtopic": "", #추가 사항 02.02 : 기타 사용자 추가
         },
 
         "ai_subtopic_recos": {
@@ -195,6 +194,30 @@ def save_persona_to_disk():
     os.makedirs(os.path.dirname(PROFILE_PATH), exist_ok=True)
     with open(PROFILE_PATH, "w", encoding="utf-8") as f:
         json.dump(st.session_state["persona"], f, ensure_ascii=False, indent=2)
+
+
+def save_step2_to_disk():
+    os.makedirs(os.path.dirname(STEP2_PATH), exist_ok=True)
+    payload = {
+        "topic_flow": st.session_state.get("topic_flow"),
+        "options": st.session_state.get("options"),
+    }
+    with open(STEP2_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def save_step3_to_disk():
+    os.makedirs(os.path.dirname(STEP3_PATH), exist_ok=True)
+    payload = {"design_brief": st.session_state.get("design_brief")}
+    with open(STEP3_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def save_step4_to_disk():
+    os.makedirs(os.path.dirname(STEP4_PATH), exist_ok=True)
+    payload = {"final_options": st.session_state.get("final_options")}
+    with open(STEP4_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
 def load_persona_from_disk():
