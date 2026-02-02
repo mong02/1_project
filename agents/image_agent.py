@@ -1,92 +1,156 @@
-# AI 이미지 분석 에이전트
-# Ollama 호출을 한 곳으로 모음
-
-import ollama
-import re
 import json
-from config import MODEL_VISION
+import base64
+import re
+import ollama
+from typing import Dict, Any, List, Optional, Tuple
+from agents.ollama_client import OllamaClient
+from config import MODEL_VISION, MODEL_TEXT
 
-def analyze_image_agent(image_bytes_list):
+
+# ==============================================================================
+# [헬퍼] 더러운 JSON 문자열 청소부
+# ==============================================================================
+def _clean_json_text(text: str) -> str:
     """
-    [Vision Agent] 제공된 모든 이미지를 분석하여 전체적인 상황(Situation)과 분위기(Mood)를 종합해 JSON 문자열로 반환합니다.
+    AI가 마크다운(```json)이나 잡담(Here is...)을 섞어서 줘도
+    순수 JSON 객체({ ... }) 부분만 추출합니다.
     """
+    if not text:
+        return "{}"
+    
+    # 1. ``` 또는 ```json 블록 안에 있으면 그 안의 내용만 추출
+    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+    if match:
+        text = match.group(1)
+    
+    # 2. 가장 바깥쪽 중괄호 {} 찾기
+    match = re.search(r"\{[\s\S]*\}", text)
+    if match:
+        text = match.group(0)
+        
+    return text.strip()
+
+
+# ==============================================================================
+# [메인 함수] UI에서 호출하는 이미지 분석 에이전트
+# ==============================================================================
+def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
+    """
+    이미지 바이트를 받아 Vision 모델로 분석하고 결과를 문자열로 반환합니다.
+    UI에서는 이 문자열을 그대로 저장하고 parse_image_analysis로 파싱합니다.
+    """
+    img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+    # 사용자 의도 반영
+    intent_instruction = ""
+    if user_intent:
+        intent_instruction = f"\n\n[사용자 의도 - 최우선 반영]: {user_intent}\n위 의도를 분석과 추천에 가장 중요하게 반영하세요."
+
+    prompt = f"""
+    당신은 블로그 사진 분석 전문가입니다.
+    주어진 이미지를 보고 블로그 글의 주제를 추천해주세요.
+    {intent_instruction}
+
+    [출력 형식]
+    반드시 아래 JSON 형식으로만 출력하세요. 다른 텍스트는 절대 포함하지 마세요.
+
+    {{
+        "mood": "이 사진으로 쓸 수 있는 블로그 주제를 한 문장으로 (예: 햇살 맛집 홈카페에서의 여유로운 오후)",
+        "tags": ["태그1", "태그2", "태그3", "태그4", "태그5"]
+    }}
+    """
+
     try:
-        # 단일 바이트가 들어올 경우 리스트로 변환
-        if isinstance(image_bytes_list, bytes):
-            image_bytes_list = [image_bytes_list]
-
-        response = ollama.chat(
+        response = ollama.generate(
             model=MODEL_VISION,
-            messages=[{
-                'role': 'user',
-                'content': """제공된 모든 이미지들을 전체적으로 분석하여 하나의 상황(Situation)과 분위기(Mood)로 취합해 JSON 문자열로 반환해줘.
-모든 사진을 정확하게 읽고, 전체를 아우르는 한국어 요약을 제공해야 해.
-
-응답은 반드시 아래와 같은 JSON 형식이어야 해:
-{
-  "situation": "전체 사진들을 아우르는 종합적인 상황 설명",
-  "mood": "전체 사진들의 공통적인 분위기 설명",
-  "tags": ["#태그1", "#태그2", "#태그3", "#태그4", "#태그5"]
-}
-
-[규칙]
-1. 반드시 한국어로 답변할 것.
-2. JSON 외의 다른 텍스트는 포함하지 말 것.
-3. 상황(situation)은 여러 장의 사진이 보여주는 흐름이나 공통된 테마를 블로그 에세이 스타일로 자연스럽게 정리할 것.
-4. 분위기(mood)는 사진 전체의 느낌을 한 문장으로 감성적으로 표현할 것.
-5. 태그는 사진들에서 추출된 핵심 키워드 5개 내외로 작성할 것.""",
-                'images': image_bytes_list
-            }]
+            prompt=prompt,
+            images=[img_b64],
+            stream=False
         )
-        return response['message']['content']
-    except Exception as e:
-        print(f"이미지 분석 모델({MODEL_VISION}) 오류: {e}")
+        raw_text = response.get('response', '')
+        print(f"[DEBUG] Raw Vision Response: {raw_text[:200]}...")
+        
+        # JSON 정리
+        cleaned = _clean_json_text(raw_text)
+        
+        # 파싱 테스트
+        json.loads(cleaned)
+        
+        return cleaned
+        
+    except json.JSONDecodeError as e:
+        print(f"JSON Parse Error: {e}")
+        # 파싱 실패 시 기본값 반환
         return json.dumps({
-            "situation": "이미지들을 분석하는 도중 오류가 발생했습니다.",
-            "mood": "분석 오류",
-            "tags": ["#오류", "#재시도"]
+            "mood": "사진 분석 결과를 가져오지 못했습니다.",
+            "tags": ["사진", "일상"]
+        }, ensure_ascii=False)
+    except Exception as e:
+        print(f"Image Analysis Error: {e}")
+        return json.dumps({
+            "mood": f"분석 오류: {str(e)}",
+            "tags": []
         }, ensure_ascii=False)
 
 
-def parse_image_analysis(raw_text):
+# ==============================================================================
+# [파싱 함수] 분석 결과 문자열에서 mood와 tags 추출
+# ==============================================================================
+def parse_image_analysis(analysis_result: str) -> Tuple[str, List[str]]:
     """
-    JSON 문자열을 파싱하여 분위기와 태그를 분리합니다.
+    analyze_image_agent의 결과 문자열을 파싱하여 (mood, tags) 튜플로 반환합니다.
     """
     try:
-        # JSON 부분만 추출 (가끔 AI가 백틱 등을 포함할 수 있음)
-        json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-        if json_match:
-            data = json.loads(json_match.group())
-        else:
-            data = json.loads(raw_text)
+        # 한번 더 정리 (혹시 모를 이중 저장 대비)
+        cleaned = _clean_json_text(analysis_result)
+        data = json.loads(cleaned)
         
-        situation = data.get("situation", "")
         mood = data.get("mood", "")
         tags = data.get("tags", [])
         
-        # UI에서 mood를 제목 추천 등으로 사용하므로, 
-        # 상황(situation)과 분위기(mood)를 적절히 조합하여 반환하거나 mood를 우선순위로 둠
-        # 여기서는 기존 step2_topic.py와의 호환성을 위해 mood를 반환하되, 
-        # 필요시 situation을 활용할 수 있도록 함.
+        # 태그에서 # 제거
+        clean_tags = [str(t).replace("#", "").strip() for t in tags if t]
         
-        return mood if mood else situation, tags
+        return mood, clean_tags
+        
     except Exception as e:
-        print(f"JSON 파싱 오류: {e}")
-        # 실패 시 기존의 텍스트 기반 파싱 시도 (폴백)
-        mood = ""
-        tags = []
-        clean_text = raw_text.replace("**", "").replace("##", "").replace('"', '').replace("'", "").strip()
-        lines = clean_text.split("\n")
-        for line in lines:
-            line = line.strip()
-            if "분위기" in line and ":" in line:
-                mood = line.split(":", 1)[1].strip()
-            elif "태그" in line and ":" in line:
-                tag_part = line.split(":", 1)[1].strip()
-                tags = ["#" + t.replace("#", "").strip() for t in re.split(r'[, ]+', tag_part) if t.strip()]
+        print(f"Parse Error: {e}")
+        return "분석 결과를 파싱할 수 없습니다.", []
+
+
+# ==============================================================================
+# [하위 호환] 기존 2단계 분석 흐름 (필요시 사용)
+# ==============================================================================
+def analyze_image_flow(file_list: List[Any], user_intent: str = "") -> Dict[str, Any]:
+    """2단계 분석 흐름 (Vision -> Text). 필요시 사용."""
+    if not file_list:
+        return {"error": "No image files provided.", "is_success": False}
+    
+    try:
+        if hasattr(file_list[0], 'getvalue'):
+            first_image_bytes = file_list[0].getvalue()
+        else:
+            first_image_bytes = file_list[0]
         
-        if not mood:
-            mood = "분위기 분석 결과가 없습니다."
-        if not tags:
-            tags = ["#사진", "#일상", "#기록"]
-        return mood, tags
+        result_str = analyze_image_agent(first_image_bytes, user_intent)
+        mood, tags = parse_image_analysis(result_str)
+        
+        return {
+            "is_success": True,
+            "creative": {"main_angle": mood, "tags": tags},
+            "facts": {}
+        }
+    except Exception as e:
+        return {"error": str(e), "is_success": False}
+
+
+def parse_analysis_for_ui(full_result: Dict[str, Any]) -> Dict[str, Any]:
+    """분석 결과를 UI에 보여주기 편한 형태로 정리"""
+    creative = full_result.get("creative", {})
+    
+    return {
+        "angle_title": creative.get("main_angle", "사진 분석 완료"),
+        "display_text": creative.get("intro_sentence", ""),
+        "tags": creative.get("tags", []),
+        "fact_check": ""
+    }
