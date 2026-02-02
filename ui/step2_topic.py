@@ -7,6 +7,8 @@ import os
 import re
 import json
 import requests
+import io
+from PIL import Image
 from typing import Dict, Any, Optional
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -111,6 +113,36 @@ def inject_custom_css():
         """,
         unsafe_allow_html=True
     )
+
+
+@st.cache_data
+def resize_image_cached(image_bytes, max_size=400):
+    """이미지 바이트를 받아 300~400px 내외로 리사이징하여 반환합니다."""
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        # RGBA 등을 RGB로 변환 (JPEG 저장용)
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+            
+        width, height = img.size
+        # 긴 쪽을 max_size에 맞춤
+        if width > height:
+            if width > max_size:
+                height = int((max_size / width) * height)
+                width = max_size
+        else:
+            if height > max_size:
+                width = int((max_size / height) * width)
+                height = max_size
+        
+        img = img.resize((width, height), Image.LANCZOS)
+        
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=85)
+        return output.getvalue()
+    except Exception as e:
+        print(f"Image resize error: {e}")
+        return image_bytes
 
 
 # ====================================================
@@ -511,19 +543,27 @@ def render_step2(ctx):
             label_visibility="collapsed"
         )
 
+        # 리사이징된 이미지 바이트를 담을 리스트
+        processed_images = []
+
         if uploaded_files:
             if len(uploaded_files) > 10:
                 st.warning("⚠️ 이미지는 최대 10장까지만 추가할 수 있습니다.")
                 uploaded_files = uploaded_files[:10]
 
-            st.caption(f"사진 {len(uploaded_files)}장 선택됨")
+            # 모든 파일 리사이징 처리 (300~400px)
+            for f in uploaded_files:
+                resized_b = resize_image_cached(f.getvalue(), max_size=400)
+                processed_images.append(resized_b)
+
+            st.caption(f"사진 {len(uploaded_files)}장 선택됨 (자동 리사이징 400px 적용됨)")
 
             cols = st.columns(3)
-            for idx, file in enumerate(uploaded_files):
+            for idx, img_bytes in enumerate(processed_images):
                 with cols[idx % 3]:
-                    st.image(file, caption=f"{idx+1}", use_container_width=True)
+                    st.image(img_bytes, caption=f"{idx+1}", use_container_width=True)
 
-            first_file_bytes = uploaded_files[0].getvalue()
+            first_file_bytes = processed_images[0]
         else:
             first_file_bytes = None
             if topic_flow["images"]["files"]:
@@ -535,15 +575,16 @@ def render_step2(ctx):
         st.markdown("<br>", unsafe_allow_html=True)
 
         if st.button("✨ 사진 먼저 분석하기 (추천 주제 받기)", key="btn_analyze_first", type="primary", use_container_width=True):
-            if uploaded_files:
+            if processed_images:
                 with st.spinner("🔍 사진을 분석하여 주제를 추출 중입니다..."):
-                    first_file_bytes = uploaded_files[0].getvalue()
+                    # 리사이징된 첫 번째 이미지 사용
+                    target_bytes = processed_images[0]
                     # 사용자 의도를 최우선으로 전달
                     user_intent = topic_flow["images"]["intent"]["custom_text"] or ""
-                    analysis_result = analyze_image_agent(first_file_bytes, user_intent=user_intent)
+                    analysis_result = analyze_image_agent(target_bytes, user_intent=user_intent)
                     mood, tags = parse_image_analysis(analysis_result)
 
-                    topic_flow["images"]["files"] = first_file_bytes
+                    topic_flow["images"]["files"] = target_bytes
                     topic_flow["images"]["analysis"]["raw"] = analysis_result
                     topic_flow["images"]["analysis"]["mood"] = mood
                     topic_flow["images"]["analysis"]["tags"] = tags
