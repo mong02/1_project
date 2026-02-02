@@ -2,7 +2,15 @@
 # 세부 주제 - 제목 후보
 
 import os
-import json
+from typing import Any, Dict, List
+
+from config import TARGET_CHARS, MODEL_TEXT
+from agents.ollama_client import OllamaClient
+
+def _safe_list(x) -> List[str]:
+    if isinstance(x, list):
+        return x
+    return []
 
 class TopicAgent:
     def __init__(self, client):
@@ -62,3 +70,120 @@ class TopicAgent:
         }
         
         return plan
+
+
+def generate_design_brief(ctx: Dict[str, Any], client: OllamaClient | None = None) -> Dict[str, Any]:
+    if client is None:
+        client = OllamaClient(model=MODEL_TEXT)
+
+    persona = ctx.get("persona", {})
+    topic_flow = ctx.get("topic_flow", {})
+    options = ctx.get("options", {})
+    final_options = ctx.get("final_options", {})
+
+    selected_title = (topic_flow.get("title", {}) or {}).get("selected")
+    input_keyword = (topic_flow.get("title", {}) or {}).get("input_keyword")
+    main_kw = selected_title or input_keyword or ""
+
+    toggles = final_options.get("toggles", {}) or {}
+    seo_opt = bool(toggles.get("seo_opt", False))
+
+    target_chars = int((ctx.get("design_brief", {}) or {}).get("length", {}).get("target_chars") or TARGET_CHARS)
+
+    facts = {
+        "persona": {
+            "role_job": persona.get("role_job"),
+            "tone": persona.get("tone", {}),
+            "mbti": (persona.get("mbti", {}) or {}).get("type"),
+            "avoid_keywords": _safe_list(persona.get("avoid_keywords")),
+        },
+        "topic": {
+            "category": (topic_flow.get("category", {}) or {}).get("selected"),
+            "subtopic": (topic_flow.get("category", {}) or {}).get("selected_subtopic"),
+            "title": selected_title,
+            "input_keyword": input_keyword,
+        },
+        "options": {
+            "post_type": options.get("post_type"),
+            "headline_style": options.get("headline_style"),
+            "target_reader": (options.get("detail", {}) or {}).get("target_reader", {}).get("text"),
+            "extra_request": (options.get("detail", {}) or {}).get("extra_request", {}).get("text"),
+        },
+        "constraints": {
+            "target_chars": target_chars,
+            "seo_opt": seo_opt,
+        },
+    }
+
+    schema_hint = {
+        "applied_persona_text": "string",
+        "keywords": {"main": "string", "sub": ["string"]},
+        "target_context": {"text": "string"},
+        "tone_manner": {"summary": "string", "rules": ["string"]},
+        "outline": {"summary": "string", "sections": ["string"]},
+        "length": {"target_chars": "number", "note": "string"},
+        "strategy": {"text": "string", "seo": {"enabled": "boolean", "notes": "string"}, "hashtags": ["string"]},
+    }
+
+    prompt = f"""
+너는 블로그 설계안을 만드는 콘텐츠 전략가다.
+출력은 반드시 JSON 객체 한 덩어리만. (설명/코드블록 금지)
+모든 문장은 존댓말로 작성하라. 반말은 절대 금지.
+
+아래 FACTS를 기반으로 반드시 다음을 포함해 설명하라:
+- 타겟 상황: 다정한 존댓말로 2줄, 실제 상황 설명만 작성
+- 톤앤매너: 다정한 존댓말로 2줄, 페르소나를 반영한 결과 설명만 작성
+- 글 구성: 다정한 존댓말로 2줄, 섹션의 목적과 전개 흐름을 실제 내용으로 설명
+- 전략: 다정한 존댓말로 2줄, 타겟 독자/추가 요청/SEO 옵션을 반영한 실행 전략을 설명
+
+금지 규칙:
+- “예를 들어”, “설명할게/하겠다” 같은 메타 문장 금지
+- 지시문을 반복하거나 형식을 설명하는 문장 금지
+- 키워드 나열 금지, 실제 내용만 문장으로 작성
+
+[FACTS]
+{facts}
+
+[OUTPUT SCHEMA HINT]
+{schema_hint}
+""".strip()
+
+    try:
+        out = client.generate_json("콘텐츠 전략가", prompt)
+    except Exception as e:
+        raise
+
+    result = {
+        "status": "ready",
+        "error": None,
+        "applied_persona_text": out.get("applied_persona_text") or "",
+        "keywords": {
+            "main": (out.get("keywords", {}) or {}).get("main") or main_kw,
+            "sub": _safe_list((out.get("keywords", {}) or {}).get("sub")),
+        },
+        "target_context": {"text": (out.get("target_context", {}) or {}).get("text") or ""},
+        "tone_manner": {
+            "summary": (out.get("tone_manner", {}) or {}).get("summary") or "",
+            "rules": _safe_list((out.get("tone_manner", {}) or {}).get("rules")),
+        },
+        "outline": {
+            "summary": (out.get("outline", {}) or {}).get("summary") or "",
+            "sections": _safe_list((out.get("outline", {}) or {}).get("sections")),
+        },
+        "length": {
+            "target_chars": int((out.get("length", {}) or {}).get("target_chars") or target_chars),
+            "note": (out.get("length", {}) or {}).get("note") or "",
+        },
+        "strategy": {
+            "text": (out.get("strategy", {}) or {}).get("text") or "",
+            "seo": {
+                "enabled": bool((out.get("strategy", {}) or {}).get("seo", {}).get("enabled", seo_opt)),
+                "notes": (out.get("strategy", {}) or {}).get("seo", {}).get("notes") or "",
+            },
+            "hashtags": _safe_list((out.get("strategy", {}) or {}).get("hashtags")),
+        },
+        "sources": {"from_step1": {}, "from_step2": {}, "agent_raw": out},
+        "updated_at": None,
+    }
+
+    return result
