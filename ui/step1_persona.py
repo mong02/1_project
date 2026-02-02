@@ -5,7 +5,7 @@
 
 import streamlit as st
 from typing import Dict, List
-
+def render(ctx): st.write("Step 1: Persona 화면")
 # -----------------------------
 # 데이터/상수
 # -----------------------------
