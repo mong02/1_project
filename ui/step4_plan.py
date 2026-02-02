@@ -1,7 +1,7 @@
 import streamlit as st
 from state import init_state, reset_from_step, save_step4_to_disk
 
-def render_step_4():
+def render():
     init_state()  # ✅ 세션 상태 스키마 보장
 
     st.header("🛠️ 최종 옵션 설정")
