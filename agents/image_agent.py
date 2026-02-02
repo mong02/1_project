@@ -32,8 +32,7 @@ def _clean_json_text(text: str) -> str:
 
 
 # ==============================================================================
-# [메인 함수] UI에서 호출하는 이미지 분석 에이전트
-# ==============================================================================
+# [메인 함수] UI에서 호출하는 이미지 분석 에이전트   ------- (260202) 다 갈아엎음 코드 끝까지. ==============================================================================
 def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
     """
     이미지 바이트를 받아 Vision 모델로 분석하고 결과를 문자열로 반환합니다.
@@ -41,24 +40,45 @@ def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
     """
     img_b64 = base64.b64encode(image_bytes).decode('utf-8')
 
-    # 사용자 의도 반영
+    # 사용자 의도 반영 (최우선순위로 제목과 주제에 녹여야 함)
     intent_instruction = ""
     if user_intent:
-        intent_instruction = f"\n\n[사용자 의도 - 최우선 반영]: {user_intent}\n위 의도를 분석과 추천에 가장 중요하게 반영하세요."
+        intent_instruction = f"""
+
+★★★ [사용자 의도 - 최우선 반영]: "{user_intent}" ★★★
+출력 예시: 의도가 "힐링"이면 → "힐링이 필요한 날, ..." 또는 "힐링 여행, ..."
+사진 요소는 의도 뒤에 자연스럽게 붙여주세요.
+사진에서 보이는 요소들과 이 의도를 창의적으로 결합하여 하나의 매력적인블로그 주제로 만드세요.
+"""
 
     prompt = f"""
-    당신은 블로그 사진 분석 전문가입니다.
-    주어진 이미지를 보고 블로그 글의 주제를 추천해주세요.
-    {intent_instruction}
+당신은 10년 경력의 블로그 콘텐츠 기획 전문가입니다.
+업로드된 이미지를 면밀히 분석하여 사람들이 읽고 싶어하는 블로그 주제를 도출해주세요.
+{intent_instruction}
 
-    [출력 형식]
-    반드시 아래 JSON 형식으로만 출력하세요. 다른 텍스트는 절대 포함하지 마세요.
+[분석 프로세스]
+1. 이미지에서 핵심 피사체, 분위기, 장소, 상황을 파악합니다.
+2. 사용자 의도가 있다면 이를 최우선으로, 이미지 요소와 자연스럽게 융합합니다.
+3. "이 사진으로 어떤 이야기를 쓸 수 있을까?"를 고민하며 독자를 끌어당기는 주제를 만듭니다.
+4. 클릭하고 싶은 매력적인 블로그 제목 스타일로 주제를 작성합니다.
 
-    {{
-        "mood": "이 사진으로 쓸 수 있는 블로그 주제를 한 문장으로 (예: 햇살 맛집 홈카페에서의 여유로운 오후)",
-        "tags": ["태그1", "태그2", "태그3", "태그4", "태그5"]
-    }}
-    """
+[좋은 주제 예시]
+- 사진: 카페 + 의도: "혼자만의 시간" → "북적이는 도심 속, 나만의 조용한 아지트를 찾았다"
+- 사진: 음식 + 의도: "가성비" → "이 가격에 이 맛? 직장인 점심 맛집 인정"
+- 사진: 여행지 + 의도: 없음 → "인생샷 명소, 여기 안 가면 후회해요"
+
+[나쁜 주제 예시 - 피하세요]
+- "카페에서 찍은 사진입니다" (단순 묘사)
+- "커피와 케이크" (키워드 나열)
+
+[출력 형식]
+반드시 아래 JSON만 출력하세요. 설명이나 마크다운 없이 순수 JSON만!
+
+{{
+    "main": "독자를 끌어당기는 매력적인 블로그 주제 한 문장",
+    "tags": ["핵심태그1", "핵심태그2", "태그3", "태그4", "태그5"]
+}}
+"""
 
     try:
         response = ollama.generate(
@@ -82,13 +102,13 @@ def analyze_image_agent(image_bytes: bytes, user_intent: str = "") -> str:
         print(f"JSON Parse Error: {e}")
         # 파싱 실패 시 기본값 반환
         return json.dumps({
-            "mood": "사진 분석 결과를 가져오지 못했습니다.",
+            "main": "사진 분석 결과를 가져오지 못했습니다.",
             "tags": ["사진", "일상"]
         }, ensure_ascii=False)
     except Exception as e:
         print(f"Image Analysis Error: {e}")
         return json.dumps({
-            "mood": f"분석 오류: {str(e)}",
+            "main": f"분석 오류: {str(e)}",
             "tags": []
         }, ensure_ascii=False)
 
@@ -105,13 +125,13 @@ def parse_image_analysis(analysis_result: str) -> Tuple[str, List[str]]:
         cleaned = _clean_json_text(analysis_result)
         data = json.loads(cleaned)
         
-        mood = data.get("mood", "")
+        main = data.get("main", "")
         tags = data.get("tags", [])
         
         # 태그에서 # 제거
         clean_tags = [str(t).replace("#", "").strip() for t in tags if t]
         
-        return mood, clean_tags
+        return main, clean_tags
         
     except Exception as e:
         print(f"Parse Error: {e}")
