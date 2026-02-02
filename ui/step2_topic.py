@@ -584,11 +584,29 @@ def render_step2(ctx):
                     analysis_result = analyze_image_agent(target_bytes, user_intent=user_intent)
                     mood, tags = parse_image_analysis(analysis_result)
 
+                    # 02.02 추가: AI가 mood에 사용자 의도를 누락했거나 약하게 반영했을 경우를 대비해 수동 결합
+                    if user_intent and user_intent.lower() not in mood.lower():
+                        mood = f"{user_intent} - {mood}"
+
                     topic_flow["images"]["files"] = target_bytes
                     topic_flow["images"]["analysis"]["raw"] = analysis_result
                     topic_flow["images"]["analysis"]["mood"] = mood
                     topic_flow["images"]["analysis"]["tags"] = tags
-                    st.toast("이미지 분석이 완료되었습니다!")
+
+                    # 02.02 추가: 이미지 분석 직후 write_agent의 suggest_titles_agent 호출
+                    with st.spinner("💡 분석된 분위기를 바탕으로 제목을 생성 중입니다..."):
+                        analysis_mood = mood or ""
+                        titles = suggest_titles_agent(
+                            category=topic_flow["category"]["selected"] or "일상",
+                            subtopic=topic_flow["category"]["selected_subtopic"] or "기타",
+                            mood=analysis_mood or "일반적인",
+                            user_intent=user_intent or analysis_mood,
+                            temperature=st.session_state.get("ai_topic_temperature", 0.4)
+                        )
+                        topic_flow["title"]["candidates"] = titles
+                        st.session_state["show_ai_reco"] = True
+
+                    st.toast("이미지 분석 및 제목 추천이 완료되었습니다!")
                     st.rerun()
             else:
                 st.info("사진을 먼저 업로드해주세요.")
@@ -724,17 +742,24 @@ def render_step2(ctx):
         # 02.02 추가수정 : 트리거 조건을 selected_sub가 아닌 effective_subtopic 기준으로 변경(직접입력 반영)
         if effective_subtopic and effective_subtopic != topic_flow["category"]["selected_subtopic"]:
             topic_flow["category"]["selected_subtopic"] = effective_subtopic
+            # 생성 중에는 기존 추천 목록을 비워서 창의성 바와 함께 숨김
+            topic_flow["title"]["candidates"] = []
+            st.session_state["show_ai_reco"] = False
 
             with st.spinner("💡 AI가 주제어 후보를 생성 중입니다..."):
                 try:
-                    prompt = build_topic_prompt(
+                    # 02.02 수정 : ollama_generate_topic_json 대신 write_agent의 suggest_titles_agent 사용
+                    analysis_mood = topic_flow["images"]["analysis"]["mood"] or ""
+                    user_intent = topic_flow["images"]["intent"]["custom_text"] or ""
+                    
+                    titles = suggest_titles_agent(
                         category=topic_flow["category"]["selected"],
                         subtopic=effective_subtopic,
-                        n=5
+                        mood=analysis_mood or "일반적인",
+                        user_intent=user_intent or analysis_mood,
+                        temperature=st.session_state.get("ai_topic_temperature", 0.4)
                     )
-                    result = ollama_generate_topic_json(prompt, temperature=st.session_state.get("ai_topic_temperature", 0.4), seed=42)
-                    candidates = result.get("topic_candidates", [])
-                    topic_flow["title"]["candidates"] = candidates
+                    topic_flow["title"]["candidates"] = titles
                     st.session_state["last_gen_key"] = current_gen_key
                     st.session_state["show_ai_reco"] = True
                 except Exception as e:
