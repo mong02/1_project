@@ -1,8 +1,9 @@
+# ui/step4_plan.py
 import streamlit as st
 from state import init_state, reset_from_step, save_step4_to_disk
 
-def render():
-    init_state()  # ✅ 세션 상태 스키마 보장
+def render(ctx):
+    init_state()  # 세션 상태 스키마 보장
 
     st.header("🛠️ 최종 옵션 설정")
     st.caption("더 완벽한 글 작성을 위한 마지막 설정을 선택하세요.")
@@ -19,7 +20,6 @@ def render():
     st.markdown("---")
 
     if st.button("🚀 블로그 글 생성하기", type="primary", use_container_width=True):
-        # ✅ 스키마에 맞춰 저장
         st.session_state["final_options"]["toggles"].update({
             "seo_opt": seo,
             "anti_ai_strong": anti_ai,
@@ -27,16 +27,13 @@ def render():
             "evidence_label": evidence,
         })
 
-        # ✅ 이전 출력물 초기화(새 생성 준비)
         reset_from_step(4)
-
-        # ✅ step4 설정 저장(선택)
         save_step4_to_disk()
 
-        # ✅ Step 5 이동
         st.session_state["step"] = 5
         st.rerun()
 
+    # ✅ UX 안내 문구 (누락됐던 부분)
     st.caption("※ '생성하기'를 누르면 AI가 설계안에 맞춰 집필을 시작합니다.")
 
 import streamlit as st
