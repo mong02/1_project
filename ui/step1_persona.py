@@ -20,7 +20,7 @@ def render(ctx):
 
     # 2️⃣ 말투
     tone_mode = st.radio(
-        "말투 입력 방식",
+        "선호 하는 말투",
         ["preset", "custom"],
         index=0 if persona["tone"]["mode"] == "preset" else 1,
         horizontal=True
