@@ -2,6 +2,8 @@
 # 세부 주제 - 제목 후보
 
 import os
+import re
+import requests
 from typing import Any, Dict, List
 
 from config import TARGET_CHARS, MODEL_TEXT
@@ -185,5 +187,102 @@ def generate_design_brief(ctx: Dict[str, Any], client: OllamaClient | None = Non
         "sources": {"from_step1": {}, "from_step2": {}, "agent_raw": out},
         "updated_at": None,
     }
+
+    return result
+
+
+# 수정( 스텝1 블로그 분석 코드)
+def _fetch_url_text(url: str, max_chars: int = 6000) -> str:
+    """
+    URL의 HTML을 받아서 대충 텍스트만 뽑아옵니다.
+    (완벽한 크롤링이 아니라 '스타일 분석용 요약 텍스트'만 추출하는 목적)
+    """
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        r = requests.get(url, headers=headers, timeout=8)
+        r.raise_for_status()
+        html = r.text
+
+        # script/style 제거
+        html = re.sub(r"<script.*?>.*?</script>", " ", html, flags=re.S)
+        html = re.sub(r"<style.*?>.*?</style>", " ", html, flags=re.S)
+
+        # 태그 제거(아주 단순)
+        text = re.sub(r"<[^>]+>", " ", html)
+        text = re.sub(r"\s+", " ", text).strip()
+
+        return text[:max_chars]
+    except Exception:
+        return ""
+
+
+def analyze_blog_style(blog_url: str, client: OllamaClient | None = None) -> Dict[str, Any]:
+    """
+    Step1에서 입력된 블로그 URL을 실제로 읽고(가능하면) 스타일을 분석합니다.
+    반환 스키마(권장):
+      {
+        "tone": "...",
+        "structure": "...",
+        "feel": "..."
+      }
+    """
+    if client is None:
+        client = OllamaClient(model=MODEL_TEXT)
+
+    # 1) 프롬프트(md) 읽기: prompts/analyzed_style.md
+    prompt_path = os.path.join("prompts", "analyzed_style.md")
+    if os.path.exists(prompt_path):
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            base_prompt = f.read()
+    else:
+        # md 없을 때 최소 프롬프트(백업)
+        base_prompt = """
+너는 블로그 문체 분석가다.
+아래 INPUT을 보고 말투/구성/느낌을 한국어로 요약해라.
+출력은 반드시 JSON만.
+키는 tone, structure, feel.
+""".strip()
+
+    # 2) URL에서 텍스트 가져오기(가능한 경우)
+    page_text = _fetch_url_text(blog_url)
+
+    # 3) LLM에게 줄 입력 구성
+    #    - 블로그 내용이 제대로 못 가져와질 수 있으니 url도 같이 보냄
+    prompt = f"""
+{base_prompt}
+
+[INPUT_URL]
+{blog_url}
+
+[INPUT_TEXT_EXCERPT]
+{page_text if page_text else "(본문을 가져오지 못했습니다. URL과 일반적인 블로그 문체 신호로 추정하되, 불확실하면 그렇게 명시하세요.)"}
+
+[OUTPUT FORMAT]
+반드시 JSON 객체 한 덩어리만 출력:
+{{
+  "tone": "말투 1줄",
+  "structure": "구성 1줄",
+  "feel": "느낌 1줄"
+}}
+""".strip()
+
+    out = client.generate_json("블로그 문체 분석가", prompt)
+
+    # 4) 정규화(키가 조금 달라도 UI가 안깨지게)
+    result = {
+        "tone": out.get("tone") or out.get("말투") or "",
+        "structure": out.get("structure") or out.get("구성") or out.get("writingStyle") or "",
+        "feel": out.get("feel") or out.get("느낌") or out.get("impression") or "",
+    }
+
+    # 완전 비었으면 fallback
+    if not any(result.values()):
+        result = {
+            "tone": "분석 실패(데이터 부족)",
+            "structure": "분석 실패(데이터 부족)",
+            "feel": "분석 실패(데이터 부족)",
+        }
 
     return result
