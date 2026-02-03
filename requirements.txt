@@ -1,0 +1,18 @@
+# 실행 전 설치 pip install -r requirements.txt
+
+
+# Core
+python-dotenv>=1.0.0
+
+
+# LLM Providers
+openai>=1.30.0
+ollama>=0.1.8
+
+
+# App / UI
+streamlit>=1.32.0
+
+
+# Utilities
+requests>=2.31.0
