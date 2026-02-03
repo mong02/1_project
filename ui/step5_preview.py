@@ -1,9 +1,8 @@
 # 이런 글이 나온다는 미리 보기
 # 최종 생성 버튼
 import streamlit as st
-from agents.write_agent import generate_post # 엔진 함수
-# from state import reset_all, save_step3_to_disk # 상태 관리
-from datetime import datetime
+from agents.write_agent import generate_post 
+from state import reset_all, save_step3_to_disk
 
 def render(ctx):
     """
@@ -73,20 +72,26 @@ def render(ctx):
     # 2. 서론 (INTRO)
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("**📝 서론 (Intro)**")
+    # [에러 해결] 이미지 리스트와 캡션 리스트의 갯수를 맞춰줍니다.
+    images = st.session_state["topic_flow"]["images"]["files"]
+    if images:
+        # 사진 갯수만큼 캡션을 복제하여 에러를 방지합니다.
+        captions = ["분석된 이미지 기반 컨셉"] * len(images)
+        st.image(images, use_container_width=400, caption=captions)
     
-    # 이미지 표시 로직 (Step 2에서 업로드한 파일 활용)
-    if st.session_state["topic_flow"]["images"]["files"]:
-        st.image(st.session_state["topic_flow"]["images"]["files"], use_container_width=True, caption="분석된 이미지 기반 컨셉")
-        
     st.markdown(content.get('summary', '서론 생성 중...'))
     st.markdown("</div>", unsafe_allow_html=True)
 
     # 3. 본문 (MAIN BODY)
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("**📖 본문 (Body)**")
-    st.markdown(content.get('post_markdown', '본문 생성 중...'))
-    st.markdown("</div>", unsafe_allow_html=True)
-
+    main_text = content.get('post_markdown', '').strip()
+    if main_text:
+            st.markdown(main_text)
+    else:
+            st.warning("⚠️ 본문 내용을 불러오지 못했습니다. '전체 다시 생성'을 눌러주세요.")
+            st.markdown("</div>", unsafe_allow_html=True)
+    
     # 4. 해시태그 (HASHTAGS)
     st.markdown("<div class='card' style='background: #1E293B; color: white;'>", unsafe_allow_html=True)
     st.markdown("**#️⃣ 해시태그**")
@@ -111,3 +116,4 @@ def render(ctx):
     if st.button("✍️ 새 글 작성하기", use_container_width=True, type="primary"):
         reset_all() # state 초기화
         st.rerun()
+
