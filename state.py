@@ -7,6 +7,14 @@
 
 # state.py
 
+
+PERSONA_PATH = "data/persona.json"  # ← 너희 state.py에서 실제 쓰는 경로로 맞추기
+
+def delete_persona_from_disk():
+    if os.path.exists(PERSONA_PATH):
+        os.remove(PERSONA_PATH)
+
+
 import copy
 import json
 import os
