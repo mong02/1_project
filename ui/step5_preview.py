@@ -15,7 +15,7 @@ def render(ctx):
     
     # --- [1단계: 글 생성 실행] ---
     if st.session_state["outputs"]["status"] == "idle":
-        with st.spinner("✍️ AI가 블로그 글을 작성 중입니다... 잠시만 기다려주세요."):
+        with st.spinner("AI가 블로그 글을 작성 중입니다... 잠시만 기다려주세요."):
             try:
                 # write_agent의 통합 생성 함수 호출
                 content = generate_post(ctx)
@@ -140,16 +140,16 @@ def render(ctx):
     col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
-        st.markdown("### ✨ 작성이 완료되었습니다!")
-        st.caption(f"👤 Designed by {st.session_state['persona'].get('role_job')} Persona")
+        st.markdown("### 작성이 완료되었습니다!")
+        st.caption(f" Designed by {st.session_state['persona'].get('role_job')} Persona")
     
     with col2:
-        if st.button("💾 저장하기", use_container_width=True):
+        if st.button("저장하기", use_container_width=True):
             save_step3_to_disk() # 현재 상태 저장
             st.success("저장되었습니다!")
     
     with col3:
-        if st.button("🔄 전체 다시 생성", use_container_width=True):
+        if st.button("전체 다시 생성", use_container_width=True):
             st.session_state["outputs"]["status"] = "idle"
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
@@ -197,7 +197,7 @@ def render(ctx):
     if main_text:
             _render_preview_markdown(main_text)
     else:
-            st.warning("⚠️ 본문 내용을 불러오지 못했습니다. '전체 다시 생성'을 눌러주세요.")
+            st.warning("본문 내용을 불러오지 못했습니다. '전체 다시 생성'을 눌러주세요.")
     st.markdown("</div>", unsafe_allow_html=True)
     
     # 4. 아웃트로 (OUTRO)
@@ -240,7 +240,7 @@ def render(ctx):
 
     # 하단 버튼
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("✍️ 새 글 작성하기", use_container_width=True, type="primary"):
+    if st.button("새 글 작성하기", use_container_width=True, type="primary"):
         reset_all() # state 초기화
         st.rerun()
 
