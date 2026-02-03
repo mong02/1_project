@@ -6,6 +6,7 @@
 # app.py
 
 import streamlit as st
+import os
 from state import init_state, load_persona_from_disk
 
 from ui.step1_persona import render as render_step1
@@ -16,6 +17,18 @@ from ui.step5_preview import render as render_step5
 
 
 st.set_page_config(page_title="AI Blog Generator", layout="wide")
+
+def load_global_css():
+    css_file = "style.css"  # 파일 경로 확인 (app.py와 같은 위치 가정)
+    
+    if os.path.exists(css_file):
+        with open(css_file, "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    else:
+        st.error(f"⚠️ 스타일 파일({css_file})을 찾을 수 없습니다.")
+
+# CSS 로드 실행
+load_global_css()
 
 init_state()
 load_persona_from_disk()
