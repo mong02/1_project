@@ -19,12 +19,13 @@ if root_dir not in sys.path:
 import streamlit as st
 from config import POST_TYPES, HEADLINE_STYLES, CATEGORIES, SUBTOPICS_MAP
 from state import reset_from_step
-
+# 에이전트임포트
 try:
     from agents.image_agent import analyze_image_agent, parse_image_analysis
     from agents.write_agent import suggest_titles_agent
 except ImportError as e:
     # render 함수 내부에서 에러를 띄우기 위해 여기서 멈추지 않음
+    # st.error(f"⚠️ 에이전트 로딩 실패 원인: {e}")  # <-- 이 메시지를 확인하세요!
     analyze_image_agent = None
     suggest_titles_agent = None
 
@@ -141,6 +142,7 @@ def resize_image_cached(image_bytes, max_size=400):
         img.save(output, format="JPEG", quality=85)
         return output.getvalue()
     except Exception as e:
+        st.error(f"⚠️ 에이전트 로딩 실패 원인: {e}")
         print(f"Image resize error: {e}")
         return image_bytes
 
@@ -576,19 +578,21 @@ def render_step2(ctx):
 
         if st.button("✨ 사진 먼저 분석하기 (추천 주제 받기)", key="btn_analyze_first", type="primary", use_container_width=True):
             if processed_images:
-                with st.spinner("🔍 사진을 분석하여 주제를 추출 중입니다..."):
-                    # 리사이징된 첫 번째 이미지 사용
-                    target_bytes = processed_images[0]
+                total_count = len(processed_images)
+                with st.spinner(f"🔍 {total_count}장의 사진을 분석하여 주제를 추출 중입니다..."):
                     # 사용자 의도를 최우선으로 전달
                     user_intent = topic_flow["images"]["intent"]["custom_text"] or ""
-                    analysis_result = analyze_image_agent(target_bytes, user_intent=user_intent)
+                    
+                    # 모든 이미지를 analyze_image_agent에 전달 (단일/다중 모두 처리)
+                    analysis_result = analyze_image_agent(processed_images, user_intent=user_intent)
                     mood, tags = parse_image_analysis(analysis_result)
 
                     # 02.02 추가: AI가 mood에 사용자 의도를 누락했거나 약하게 반영했을 경우를 대비해 수동 결합
                     if user_intent and user_intent.lower() not in mood.lower():
                         mood = f"{user_intent} - {mood}"
 
-                    topic_flow["images"]["files"] = target_bytes
+                    # 모든 이미지를 저장 (다중 이미지 지원)
+                    topic_flow["images"]["files"] = processed_images
                     topic_flow["images"]["analysis"]["raw"] = analysis_result
                     topic_flow["images"]["analysis"]["mood"] = mood
                     topic_flow["images"]["analysis"]["tags"] = tags
@@ -606,7 +610,7 @@ def render_step2(ctx):
                         topic_flow["title"]["candidates"] = titles
                         st.session_state["show_ai_reco"] = True
 
-                    st.toast("이미지 분석 및 제목 추천이 완료되었습니다!")
+                    st.toast(f"{total_count}장 이미지 분석 및 제목 추천이 완료되었습니다!")
                     st.rerun()
             else:
                 st.info("사진을 먼저 업로드해주세요.")
