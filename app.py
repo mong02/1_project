@@ -6,13 +6,32 @@
 # app.py
 
 import streamlit as st
-from state import init_state, load_persona_from_disk
+from state import init_state, load_persona_from_disk, delete_persona_from_disk #(맨마지막 것만 추가)
 
 from ui.step1_persona import render as render_step1
 from ui.step2_topic import render as render_step2
 from ui.step3_options import render as render_step3
 from ui.step4_plan import render as render_step4
 from ui.step5_preview import render as render_step5
+
+st.set_page_config(page_title="AI Blog Generator", layout="wide")
+
+# app.py 상단 (set_page_config 아래쪽 근처 추천) (추가)
+if "_booted" not in st.session_state:
+    init_state()
+    load_persona_from_disk()
+    st.session_state["_booted"] = True
+
+
+
+#(추가)
+if "_booted" not in st.session_state:
+    # ✅ 새로 접속/새로고침 시: 디스크 값도 같이 초기화
+    delete_persona_from_disk()
+    init_state()
+    # load는 지웠으니 굳이 안 해도 됨. 필요하면 유지해도 됨.
+    # load_persona_from_disk()
+    st.session_state["_booted"] = True
 
 
 st.set_page_config(page_title="AI Blog Generator", layout="wide")
