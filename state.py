@@ -7,8 +7,6 @@
 
 # state.py
 
-# state.py
-
 import copy
 import json
 import os
