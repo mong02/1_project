@@ -6,6 +6,29 @@ from state import reset_from_step, mark_dirty, save_persona_to_disk
 
 def render(ctx):
     persona = st.session_state["persona"]
+    #(수정)
+    if "_step1_initialized" not in st.session_state:
+        persona["role_job"] = ""
+
+        persona["tone"]["mode"] = "preset"
+        persona["tone"]["preset"] = None
+        persona["tone"]["custom_text"] = ""
+
+        for k in list(st.session_state.keys()):
+            if k.startswith("tone_"):
+                del st.session_state[k]
+
+
+        persona["mbti"] = {"type": None, "style_desc": None}
+
+        persona["avoid_keywords"] = []
+
+        persona["blog"]["url"] = None
+        persona["blog"]["analyzed_style"] = None
+        persona["blog"]["use_analysis"] = False
+
+        # 🔒 다시는 실행 안 되게 표시
+        st.session_state["_step1_initialized"] = True
 
     st.subheader("작성자 페르소나 설정")
 
