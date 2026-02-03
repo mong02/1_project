@@ -1,14 +1,21 @@
-# agents/image_agent.py
+# image_agent.py
+
+
 # =========================================================
 # [Bottom-up 방식] 개별 사진 정밀 분석 후 취합
 # =========================================================
-import ollama
 import json
 import re
 from typing import List, Dict, Any
 from collections import Counter
 
 from config import MODEL_VISION, MODEL_TEXT
+from agents.llm_client import chat_text, chat_vision
+
+# region agent log
+def _debug_log(message: str, data: Dict[str, Any], hypothesis_id: str, location: str, run_id: str = "pre"):
+    return
+# endregion
 
 # =========================================================
 # [설정]
@@ -42,12 +49,16 @@ def analyze_single_image(image_bytes: bytes, img_id: int, user_intent: str = "")
 태그: #태그1, #태그2, #태그3
 """.strip()
 
+    # region agent log
+    _debug_log(
+        message="analyze_single_image entry",
+        data={"img_id": img_id, "bytes_len": len(image_bytes) if image_bytes else 0, "has_intent": bool(user_intent)},
+        hypothesis_id="IA",
+        location="agents/image_agent.py:analyze_single_image:entry",
+    )
+    # endregion
     try:
-        r = ollama.chat(
-            model=MODEL_VISION,
-            messages=[{"role": "user", "content": prompt, "images": [image_bytes]}]
-        )
-        out = r["message"]["content"]
+        out = chat_vision(user_prompt=prompt, image_bytes=image_bytes, model=MODEL_VISION)
         
         # 설명 추출
         desc = ""
@@ -83,9 +94,26 @@ def analyze_single_image(image_bytes: bytes, img_id: int, user_intent: str = "")
         if not tags:
             tags = _extract_tags_from_text(desc, k=4)
         
-        return {"img_id": img_id, "desc": desc, "tags": tags[:5]}
+        result = {"img_id": img_id, "desc": desc, "tags": tags[:5]}
+        # region agent log
+        _debug_log(
+            message="analyze_single_image exit",
+            data={"img_id": img_id, "desc_len": len(desc), "tags_count": len(result["tags"])},
+            hypothesis_id="IA",
+            location="agents/image_agent.py:analyze_single_image:exit",
+        )
+        # endregion
+        return result
         
     except Exception as e:
+        # region agent log
+        _debug_log(
+            message="analyze_single_image error",
+            data={"img_id": img_id, "error_type": type(e).__name__, "error_message": str(e)},
+            hypothesis_id="IB",
+            location="agents/image_agent.py:analyze_single_image:error",
+        )
+        # endregion
         print(f"[이미지 {img_id}] 분석 에러: {e}")
         return {"img_id": img_id, "desc": "분석 실패", "tags": ["#사진"]}
 
@@ -197,9 +225,20 @@ def aggregate_and_plan(
 }}
 """.strip()
 
+    # region agent log
+    _debug_log(
+        message="aggregate_and_plan entry",
+        data={
+            "analysis_count": len(individual_analyses),
+            "has_intent": bool(user_intent),
+            "n_topics": n_topics,
+        },
+        hypothesis_id="IC",
+        location="agents/image_agent.py:aggregate_and_plan:entry",
+    )
+    # endregion
     try:
-        r = ollama.chat(model=MODEL_TEXT, messages=[{"role": "user", "content": prompt}])
-        txt = r["message"]["content"]
+        txt = chat_text(user_prompt=prompt, model=MODEL_TEXT)
         
         # JSON 파싱 (안전)
         try:
@@ -223,9 +262,29 @@ def aggregate_and_plan(
                 tags.append(f"#태그{len(tags)+1}")
         result["tags"] = tags
         
+        # region agent log
+        _debug_log(
+            message="aggregate_and_plan exit",
+            data={
+                "mood_len": len(result.get("mood", "") or ""),
+                "tags_count": len(result.get("tags") or []),
+                "topic_candidates_count": len(result.get("topic_candidates") or []),
+            },
+            hypothesis_id="IC",
+            location="agents/image_agent.py:aggregate_and_plan:exit",
+        )
+        # endregion
         return result
         
     except Exception as e:
+        # region agent log
+        _debug_log(
+            message="aggregate_and_plan error",
+            data={"error_type": type(e).__name__, "error_message": str(e)},
+            hypothesis_id="ID",
+            location="agents/image_agent.py:aggregate_and_plan:error",
+        )
+        # endregion
         print(f"[통합 기획] 에러: {e}")
         return {
             "merged_description": "통합 분석 실패",
@@ -256,6 +315,14 @@ def analyze_image_agent(images: list, user_intent: str = "") -> str:
     Returns:
         JSON 문자열 (mood, tags, topic_candidates 등 포함)
     """
+    # region agent log
+    _debug_log(
+        message="analyze_image_agent entry",
+        data={"count": len(images) if isinstance(images, list) else 1, "has_intent": bool(user_intent)},
+        hypothesis_id="IE",
+        location="agents/image_agent.py:analyze_image_agent:entry",
+    )
+    # endregion
     # 이미지 리스트 처리 (단일 이미지일 경우 리스트로 변환)
     if not isinstance(images, list):
         images = [images]
@@ -275,6 +342,18 @@ def analyze_image_agent(images: list, user_intent: str = "") -> str:
     )
     
     # ========== Step 3: UI 호환 형식으로 반환 ==========
+    # region agent log
+    _debug_log(
+        message="analyze_image_agent exit",
+        data={
+            "mood_len": len(unified_result.get("mood", "") or ""),
+            "tags_count": len(unified_result.get("tags") or []),
+            "topic_candidates_count": len(unified_result.get("topic_candidates") or []),
+        },
+        hypothesis_id="IE",
+        location="agents/image_agent.py:analyze_image_agent:exit",
+    )
+    # endregion
     return json.dumps(unified_result, ensure_ascii=False)
 
 
