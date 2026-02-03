@@ -1,8 +1,6 @@
 # step3_topic.py
-# 설계안 구조 UI
 
 
-# step3_topic.py
 import streamlit as st
 from datetime import datetime
 
@@ -260,4 +258,3 @@ def render(ctx: dict):
             st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
-
