@@ -99,7 +99,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 
 /* -------------------------
- *  4.2 Pills (Segmented Control)
+ *  4.2 Pills / Segmented Control (st.pills)
+ *  - Streamlit의 Pills 컴포넌트 스타일링
  * ------------------------- */
 div[data-testid="stPills"] button {
     border: 1px solid var(--border-light) !important;
@@ -115,11 +116,32 @@ div[data-testid="stPills"] button {
 div[data-testid="stPills"] button[aria-selected="true"] {
     border: 1px solid var(--primary-color) !important;
     background-color: var(--primary-color) !important;
-    color: white !important;
+    color: rgb(255, 255, 255) !important;
     font-weight: 600 !important;
 }
 
 div[data-testid="stPills"] button:hover {
+    border-color: var(--primary-color) !important;
+    color: var(--primary-color) !important;
+    background-color: var(--primary-light) !important;
+}
+
+/* -------------------------
+ *  4.2.1 General Button Styling (st.button)
+ *  - 일반 Streamlit 버튼 기본 스타일
+ * ------------------------- */
+div[data-testid="stButton"] button {
+    border: 1px solid var(--border-light) !important;
+    background-color: var(--bg-white) !important;
+    color: var(--text-secondary) !important;
+    padding: 8px 16px !important;
+    border-radius: var(--radius-pill) !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+}
+
+div[data-testid="stButton"] button:hover {
     border-color: var(--primary-color) !important;
     color: var(--primary-color) !important;
     background-color: var(--primary-light) !important;
@@ -221,14 +243,15 @@ div[data-testid="stVerticalBlock"]:has(> div:first-child .category-marker) {
     margin-bottom: var(--spacing-md) !important;
 }
 
-/* 카테고리 3열 그리드 적용 */
+/* 카테고리 3열 그리드 적용 (Pills 컴포넌트용) */
 div[data-testid="stVerticalBlock"]:has(.category-grid-marker) div[data-testid="stPills"]>div {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
     gap: var(--spacing-sm) !important;
 }
 
-div[data-testid="stPills"] button {
+/* 카테고리 Pills 버튼 스타일 강화 */
+div[data-testid="stVerticalBlock"]:has(.category-grid-marker) div[data-testid="stPills"] button {
     border: 1px solid var(--border-purple) !important;
     border-radius: var(--radius-md) !important;
     padding: 12px 10px !important;
