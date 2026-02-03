@@ -1,15 +1,13 @@
 # 카테고리 선택
 # 세부 주제/제목 후보 클릭
+
 # step2_topic.py
 
 import sys
 import os
-import re
-import json
-import requests
 import io
 from PIL import Image
-from typing import Dict, Any, Optional
+from typing import Optional
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
@@ -20,6 +18,7 @@ import streamlit as st
 from config import POST_TYPES, HEADLINE_STYLES, CATEGORIES, SUBTOPICS_MAP
 from state import reset_from_step
 # 에이전트임포트
+AGENT_IMPORT_ERROR = None
 try:
     from agents.image_agent import analyze_image_agent, parse_image_analysis
     from agents.write_agent import suggest_titles_agent
@@ -28,71 +27,13 @@ except ImportError as e:
     # st.error(f"⚠️ 에이전트 로딩 실패 원인: {e}")  # <-- 이 메시지를 확인하세요!
     analyze_image_agent = None
     suggest_titles_agent = None
+    AGENT_IMPORT_ERROR = str(e)
 
 
-# =========================================================
-# [주제어 후보 생성기] Ollama API 직접 호출
-# =========================================================
-OLLAMA_URL = "http://localhost:11434"
-from config import MODEL_TEXT
-TOPIC_MODEL = MODEL_TEXT  # config.py의 모델 사용
-
-def ollama_generate_topic_json(prompt: str, temperature: float = 0.4, seed: Optional[int] = 42) -> Dict[str, Any]:
-    """Ollama API를 직접 호출하여 JSON 형식으로 주제어 후보를 생성합니다."""
-    payload = {
-        "model": TOPIC_MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {
-            "temperature": float(temperature),
-            **({"seed": int(seed)} if seed is not None else {}),
-        },
-    }
-    r = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=180)
-    r.raise_for_status()
-    text = (r.json().get("response") or "").strip()
-    return json.loads(text)
+def _debug_log(hypothesis_id, location, message, data=None, run_id="pre-fix"):
+    return
 
 
-def build_topic_prompt(category: str, subtopic: str, n: int = 5) -> str:
-    """주제어 후보 생성을 위한 프롬프트를 구성합니다."""
-    return f"""
-너는 여러 주제 중에서 실제로 독자가 끝까지 읽게 만드는 주제만 골라내는 블로그 기획자다.
-
-입력된 대주제와 세부 주제를 바탕으로,
-블로그 글 1편에 바로 사용할 수 있는
-'주제어 후보'를 {n}개 작성하라.
-
-주제어 작성 기준:
-- 각 후보는 한 문장으로 작성한다
-- 높임말을 사용하지 않는다
-- 제목처럼 짧지 않게 작성한다
-- 반드시 아래 요소 중 최소 3가지를 문장에 포함해야 한다
-  1) 구체적인 독자 또는 상황
-  2) 독자가 끝까지 읽게 만드는 문제 지점이나 판단 기준
-  3) 글에서 초점을 맞추는 범위
-  4) 이 글에서 다루지 않는 범위에 대한 암시
-- 문장을 읽으면 이 글이 "왜 끝까지 읽을 가치가 있는지"가 드러나야 한다
-- 블로그 본문을 바로 쓰기 위한 주제 정의 문장으로 작성한다
-- 서로 관점이 겹치지 않도록 각도를 명확히 다르게 잡는다
-
-금지:
-- 제목형 문구
-- 키워드 나열
-- 추상적인 표현 남용
-- "설명한다 / 다룬다 / 알아본다" 같은 메타 표현
-- 코드블록, 목록, 추가 설명
-
-출력 규칙:
-- 출력은 반드시 JSON 객체 하나
-- topic_candidates 필드만 포함
-- topic_candidates는 길이 {n}의 문자열 배열
-
-[INPUT]
-대주제: {category}
-세부 주제: {subtopic}
-""".strip()
 
 
 def inject_custom_css():
@@ -160,6 +101,17 @@ def render_photo_intent_section(topic_flow):
         placeholder="예: 여행의 설렘을 강조하고 싶어, 제품의 디테일을 보여주고 싶어",
         label_visibility="collapsed"
     )
+    # region agent log
+    _debug_log(
+        "H6",
+        "step2_topic.py:render_photo_intent_section",
+        "intent input rendered",
+        {
+            "intent_len": len(topic_flow["images"]["intent"]["custom_text"] or ""),
+            "has_intent": bool(topic_flow["images"]["intent"]["custom_text"]),
+        },
+    )
+    # endregion
 
 
 def render_title_input_section(topic_flow):
@@ -191,8 +143,30 @@ def render_step2(ctx):
     단일 스크롤 페이지: 주제 선정 + 제목 + 상세 설정 통합
     """
     inject_custom_css()
+    # region agent log
+    _debug_log(
+        "H1",
+        "step2_topic.py:render_step2_entry",
+        "enter render_step2",
+        {
+            "agent_loaded": bool(analyze_image_agent and suggest_titles_agent),
+            "import_error_present": bool(AGENT_IMPORT_ERROR),
+            "session_step": st.session_state.get("step"),
+            "has_topic_flow": bool(st.session_state.get("topic_flow")),
+            "has_options": bool(st.session_state.get("options")),
+        },
+    )
+    # endregion
 
     if analyze_image_agent is None or suggest_titles_agent is None:
+        # region agent log
+        _debug_log(
+            "H1",
+            "step2_topic.py:render_step2_agent_missing",
+            "agent import failed; blocking step2",
+            {"import_error": AGENT_IMPORT_ERROR},
+        )
+        # endregion
         st.error("에이전트 파일을 불러올 수 없습니다. 경로를 확인해주세요.")
         st.stop()
 
@@ -201,6 +175,14 @@ def render_step2(ctx):
     options = st.session_state.get("options", None)
 
     if not topic_flow or not options:
+        # region agent log
+        _debug_log(
+            "H2",
+            "step2_topic.py:render_step2_missing_session",
+            "missing topic_flow or options",
+            {"has_topic_flow": bool(topic_flow), "has_options": bool(options)},
+        )
+        # endregion
         st.error("세션 데이터가 초기화되지 않았습니다.")
         return
 
@@ -577,6 +559,17 @@ def render_step2(ctx):
         st.markdown("<br>", unsafe_allow_html=True)
 
         if st.button("✨ 사진 먼저 분석하기 (추천 주제 받기)", key="btn_analyze_first", type="primary", use_container_width=True):
+            # region agent log
+            _debug_log(
+                "H3",
+                "step2_topic.py:analyze_button_click",
+                "analyze button clicked",
+                {
+                    "uploaded_count": len(processed_images),
+                    "has_user_intent": bool(topic_flow["images"]["intent"]["custom_text"]),
+                },
+            )
+            # endregion
             if processed_images:
                 total_count = len(processed_images)
                 with st.spinner(f"🔍 {total_count}장의 사진을 분석하여 주제를 추출 중입니다..."):
@@ -587,14 +580,40 @@ def render_step2(ctx):
                     analysis_result = analyze_image_agent(processed_images, user_intent=user_intent)
                     mood, tags = parse_image_analysis(analysis_result)
 
-                    # 02.02 추가: AI가 mood에 사용자 의도를 누락했거나 약하게 반영했을 경우를 대비해 수동 결합
-                    if user_intent and user_intent.lower() not in mood.lower():
-                        mood = f"{user_intent} - {mood}"
+                    # region agent log
+                    _debug_log(
+                        "H7",
+                        "step2_topic.py:analyze_image_agent",
+                        "image analysis returned",
+                        {
+                            "intent_len": len(user_intent or ""),
+                            "mood_raw": mood,
+                            "tags_count": len(tags or []),
+                        },
+                    )
+                    # endregion
+
+                    # 02.02 추가: 사용자 의도는 추천 주제 표시에서 제외해야 함
+                    # -> mood 자체는 그대로 두고, user_intent는 별도로 전달
+                    merge_applied = False
+                    # region agent log
+                    _debug_log(
+                        "H8",
+                        "step2_topic.py:merge_user_intent",
+                        "mood merge skipped for display",
+                        {
+                            "intent_present": bool(user_intent),
+                            "merge_applied": merge_applied,
+                            "mood_final": mood,
+                        },
+                    )
+                    # endregion
 
                     # 모든 이미지를 저장 (다중 이미지 지원)
                     topic_flow["images"]["files"] = processed_images
                     topic_flow["images"]["analysis"]["raw"] = analysis_result
                     topic_flow["images"]["analysis"]["mood"] = mood
+                    topic_flow["images"]["analysis"]["mood_display"] = mood
                     topic_flow["images"]["analysis"]["tags"] = tags
 
                     # 02.02 추가: 이미지 분석 직후 write_agent의 suggest_titles_agent 호출
@@ -618,7 +637,11 @@ def render_step2(ctx):
                 st.info("사진을 먼저 업로드해주세요.")
 
     # 분석 결과 표시
-    if topic_flow["images"]["analysis"]["mood"]:
+    mood_display = (
+        topic_flow["images"]["analysis"].get("mood_display")
+        or topic_flow["images"]["analysis"].get("mood")
+    )
+    if mood_display:
         outer_container = st.container()
         with outer_container:
             st.markdown('<div class="analysis-marker" style="display:none;"></div>', unsafe_allow_html=True)
@@ -630,7 +653,7 @@ def render_step2(ctx):
                 </div>
                 <div style="margin-bottom: 12px;">
                     <span style="font-weight: 700; color: #333; font-size: 1.1rem;">분위기: </span>
-                    <span style="color: #444; font-size: 1.1rem; line-height: 1.5;">{topic_flow['images']['analysis']['mood']}</span>
+                    <span style="color: #444; font-size: 1.1rem; line-height: 1.5;">{mood_display}</span>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -651,13 +674,21 @@ def render_step2(ctx):
                         unsafe_allow_html=True
                     )
                     st.markdown(
-                        f'<div style="color: #333; font-size: 1.05rem; line-height: 1.4; font-weight: 400;">"{topic_flow["images"]["analysis"]["mood"]}"</div>',
+                        f'<div style="color: #333; font-size: 1.05rem; line-height: 1.4; font-weight: 400;">"{mood_display}"</div>',
                         unsafe_allow_html=True
                     )
+                    # region agent log
+                    _debug_log(
+                        "H9",
+                        "step2_topic.py:render_reco_mood",
+                        "render recommendation mood",
+                        {"reco_mood": mood_display},
+                    )
+                    # endregion
                 with c2:
                     if st.button("제목적용 ↓", key="apply_mood_title_final", type="primary", use_container_width=True):
-                        topic_flow["title"]["selected"] = topic_flow["images"]["analysis"]["mood"]
-                        st.session_state["title_input_field"] = topic_flow["title"]["selected"]
+                        topic_flow["title"]["selected"] = mood_display
+                        st.session_state["title_input_field"] = mood_display
                         st.session_state["_auto_filled"] = True
                         st.rerun()
 
@@ -754,6 +785,18 @@ def render_step2(ctx):
 
             with st.spinner("💡 AI가 주제어 후보를 생성 중입니다..."):
                 try:
+                    # region agent log
+                    _debug_log(
+                        "H4",
+                        "step2_topic.py:generate_titles",
+                        "generate title candidates",
+                        {
+                            "category": topic_flow["category"]["selected"],
+                            "effective_subtopic": effective_subtopic,
+                            "has_analysis_mood": bool(topic_flow["images"]["analysis"]["mood"]),
+                        },
+                    )
+                    # endregion
                     # 02.02 수정 : ollama_generate_topic_json 대신 write_agent의 suggest_titles_agent 사용
                     analysis_mood = topic_flow["images"]["analysis"]["mood"] or ""
                     user_intent = topic_flow["images"]["intent"]["custom_text"] or ""
@@ -889,6 +932,14 @@ def render_step2(ctx):
     # -------------------------------------------------
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("▷ AI 설계 내역 확인 및 생성 시작", type="primary", use_container_width=True):
+        # region agent log
+        _debug_log(
+            "H5",
+            "step2_topic.py:step3_button_click",
+            "go to step3 button clicked",
+            {"has_title": bool(topic_flow["title"]["selected"])},
+        )
+        # endregion
         if not topic_flow["title"]["selected"]:
             st.error("글 제목을 최소한으로라도 완성해주세요!")
         else:
