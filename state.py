@@ -7,6 +7,8 @@
 
 # state.py
 
+# state.py
+
 import copy
 import json
 import os
@@ -33,7 +35,7 @@ DEFAULT_STATE = {
             "files": [],       # UploadedFile / bytes / path 등 프로젝트 룰에 맞춰 저장
             "captions": [],
             "intent": {"mode": "none", "preset": None, "custom_text": ""},
-            "analysis": {"mood": None, "tags": [], "raw": None},
+        "analysis": {"mood": None, "tags": [], "raw": None, "source": None},
         },
 
         "category": {
@@ -52,6 +54,7 @@ DEFAULT_STATE = {
             "input_keyword": "",
             "candidates": [],   # [{"title":"...", "one_liner":"..."}]
             "selected": None,
+            "selected_source": None,  # manual | ai_reco | image_analysis | unknown
         },
     },
 
@@ -62,6 +65,7 @@ DEFAULT_STATE = {
         "detail": {
             "series": {"use_series": False, "prev_url": None},
             "region_scope": {"text": ""},
+            "target_situation": {"text": ""},
             "target_reader": {"text": ""},
             "extra_request": {"text": ""},
         },
@@ -89,7 +93,22 @@ DEFAULT_STATE = {
             "hashtags": [],
         },
 
-        "sources": {"from_step1": {}, "from_step2": {}, "agent_raw": None},
+        "inputs": {
+            "mood": {"value": "", "source": None},
+            "image_tags": {"values": [], "source": None},
+            "title": {"value": "", "source": None},
+            "keywords": {"main": "", "main_source": None, "sub": []},
+            "options": {
+                "post_type": "",
+                "headline_style": "",
+                "region_scope": "",
+                "target_situation": "",
+                "target_reader": "",
+                "extra_request": "",
+            },
+            "constraints": {"target_chars": TARGET_CHARS, "seo_opt": False},
+        },
+        "sources": {"from_step1": {}, "from_step2": {}, "keyword_sources": {}, "agent_raw": None},
         "updated_at": None,
     },
 
@@ -231,7 +250,6 @@ def load_persona_from_disk():
             merged = copy.deepcopy(DEFAULT_STATE["persona"])
             merged.update(persona)
             st.session_state["persona"] = merged
-
             dirty = st.session_state.get("dirty")
             if not isinstance(dirty, dict):
                 dirty = copy.deepcopy(DEFAULT_STATE["dirty"])
