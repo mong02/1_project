@@ -6,7 +6,7 @@
 # app.py
 
 import streamlit as st
-from state import init_state, load_persona_from_disk, delete_persona_from_disk #(맨마지막 것만 추가)
+from state import init_state, load_persona_from_disk
 
 from ui.step1_persona import render as render_step1
 from ui.step2_topic import render as render_step2
@@ -14,27 +14,23 @@ from ui.step3_options import render as render_step3
 from ui.step4_plan import render as render_step4
 from ui.step5_preview import render as render_step5
 
-st.set_page_config(page_title="AI Blog Generator", layout="wide")
-
-# app.py 상단 (set_page_config 아래쪽 근처 추천) (추가)
-if "_booted" not in st.session_state:
-    init_state()
-    load_persona_from_disk()
-    st.session_state["_booted"] = True
-
-
-
-#(추가)
-if "_booted" not in st.session_state:
-    # ✅ 새로 접속/새로고침 시: 디스크 값도 같이 초기화
-    delete_persona_from_disk()
-    init_state()
-    # load는 지웠으니 굳이 안 해도 됨. 필요하면 유지해도 됨.
-    # load_persona_from_disk()
-    st.session_state["_booted"] = True
-
 
 st.set_page_config(page_title="AI Blog Generator", layout="wide")
+
+# ============================================================
+# 전역 CSS 로드
+# - style.css 파일을 읽어 Streamlit에 주입
+# - 모든 페이지에 공통으로 적용되는 스타일 정의
+# ============================================================
+def load_css(file_path: str):
+    """외부 CSS 파일을 읽어 Streamlit에 적용합니다."""
+    with open(file_path, "r", encoding="utf-8") as f:
+        css = f.read()
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+
+# style.css 로드 (루트 디렉토리 기준)
+load_css("style.css")
 
 init_state()
 load_persona_from_disk()
