@@ -17,21 +17,6 @@ from ui.step5_preview import render as render_step5
 
 st.set_page_config(page_title="AI Blog Generator", layout="wide")
 
-# ============================================================
-# 전역 CSS 로드
-# - style.css 파일을 읽어 Streamlit에 주입
-# - 모든 페이지에 공통으로 적용되는 스타일 정의
-# ============================================================
-def load_css(file_path: str):
-    """외부 CSS 파일을 읽어 Streamlit에 적용합니다."""
-    with open(file_path, "r", encoding="utf-8") as f:
-        css = f.read()
-    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-
-
-# style.css 로드 (루트 디렉토리 기준)
-load_css("style.css")
-
 init_state()
 load_persona_from_disk()
 
