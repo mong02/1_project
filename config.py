@@ -3,14 +3,19 @@
 # 예 : 카테고리 목록, 기본 옵션 on/off
 # 중요! stat.py 담당이 하는 분이 건들어야 함
 
-# config.py 변하지 않는 값
+# config.py 
 
 # 모델
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-MODEL_TEXT = "llama3.1:8b"
-MODEL_VISION = "llava:7b"
-# MODEL_TEXT = "llama3.1:70b"
-# MODEL_VISION = "llava:13b"
+# .env 로드 (config import 시점)
+_env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_env_path)
+
+MODEL_TEXT = (os.getenv("MODEL_TEXT") or "llama3.1:8b").strip()
+MODEL_VISION = (os.getenv("MODEL_VISION") or "llava:7b").strip()
 
 # 후보 개수
 N_SUBTOPICS = 6
@@ -19,7 +24,7 @@ N_HASHTAGS = 10
 
 
 # 글 길이 가이드
-TARGET_CHARS = 2000
+TARGET_CHARS = 2500
 
 # 카테고리/고정값
 MBTI = {
