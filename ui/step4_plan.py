@@ -33,4 +33,9 @@ def render(ctx):
         st.session_state["step"] = 5
         st.rerun()
 
+    # ✅ 추가: 이전 단계 버튼 (기존 코드 변경 없이 아래에 추가)
+    if st.button("← 이전 단계", use_container_width=True):
+        st.session_state["step"] = 3
+        st.rerun()
+
     st.caption("※ '생성하기'를 누르면 AI가 설계안에 맞춰 집필을 시작합니다.")
