@@ -1,463 +1,928 @@
 /* ============================================================
- *  AI Blog Generator - Main Stylesheet
- *  Version: 1.0.0
+ *  2026 Neo-AIG Design System: Retro Korean Mart (Ottogi Style)
+ *  Version: 2.2.0 (Refactored with Variables)
  * ============================================================ */
 
-/* ============================================================
- *  1. FONT IMPORTS
- * ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
-/* ============================================================
- *  2. GLOBAL VARIABLES (:root)
- *  - 색상, 폰트, 간격 등의 Design Token 정의
- *  - 여기만 수정하면 전체 테마가 변경됨
- * ============================================================ */
-:root {
-    /* Primary Colors */
-    --primary-color: #624AFF;
-    /* 메인 포인트 컬러 (Periwinkle Purple) */
-    --primary-hover: #5039D1;
-    /* Primary 호버 색상 */
-    --primary-light: #F8F7FF;
-    /* Primary 연한 배경 */
-
-    /* Background Colors */
-    --bg-light-purple: #F0F0FF;
-    --bg-card: #FAFAFF;
-    --bg-analysis: #F2F5FF;
-    /* 분석 결과 배경 */
-    --bg-white: #FFFFFF;
-
-    /* Border Colors */
-    --border-color: #E0E0E0;
-    --border-light: #EDEDED;
-    --border-purple: #EBE4FF;
-    --border-dashed: #D6D6FF;
-    --border-analysis: #E8EBF2;
-
-    /* Text Colors */
-    --text-primary: #1A1A1A;
-    --text-secondary: #666666;
-    --text-muted: #8E8E8E;
-    --text-placeholder: #BBBBBB;
-    --text-purple-blue: #4C51BF;
-    --text-purple-header: #5D5CDE;
-
-    /* Shadow */
-    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    --btn-shadow: 0 4px 12px rgba(98, 74, 255, 0.2);
-    --title-btn-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
-
-    /* Spacing */
-    --spacing-xs: 6px;
-    --spacing-sm: 12px;
-    --spacing-md: 20px;
-    --spacing-lg: 24px;
-    --spacing-xl: 30px;
-
-    /* Border Radius */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 18px;
-    --radius-pill: 20px;
-    --radius-full: 40px;
-
-    /* Typography */
-    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-size-sm: 0.85rem;
-    --font-size-base: 1rem;
-    --font-size-md: 1.05rem;
-    --font-size-lg: 1.15rem;
-    --font-size-xl: 1.3rem;
-    --font-size-2xl: 2.2rem;
+/* 1. Global Variables & Color Palette */
+/* Global Scrollbar Styling (Transparent) */
+::-webkit-scrollbar {
+    width: 10px !important;
+    background-color: transparent !important;
 }
 
-/* ============================================================
- *  3. BASE / GLOBAL STYLES
- * ============================================================ */
-.stApp {
-    font-family: var(--font-family);
+::-webkit-scrollbar-track {
+    background-color: transparent !important;
 }
 
-/* ============================================================
- *  4. STREAMLIT COMPONENT OVERRIDES
- *  - Streamlit 기본 컴포넌트(data-testid) 스타일 오버라이드
- * ============================================================ */
-
-/* -------------------------
- *  4.1 Container / Card Wrapper
- * ------------------------- */
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    border: 1px solid var(--border-light) !important;
-    border-radius: var(--radius-lg) !important;
-    padding: var(--spacing-lg) !important;
-    background-color: var(--bg-white) !important;
-    box-shadow: var(--card-shadow) !important;
-    margin-bottom: var(--spacing-md) !important;
-}
-
-/* -------------------------
- *  4.2 Pills / Segmented Control (st.pills)
- *  - Streamlit의 Pills 컴포넌트 스타일링
- * ------------------------- */
-div[data-testid="stPills"] button {
-    border: 1px solid var(--border-light) !important;
-    background-color: var(--bg-white) !important;
-    color: var(--text-secondary) !important;
-    padding: 8px 16px !important;
-    border-radius: var(--radius-pill) !important;
-    font-size: 0.95rem !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease !important;
-}
-
-div[data-testid="stPills"] button[aria-selected="true"] {
-    border: 1px solid var(--primary-color) !important;
-    background-color: var(--primary-color) !important;
-    color: rgb(255, 255, 255) !important;
-    font-weight: 600 !important;
-}
-
-div[data-testid="stPills"] button:hover {
-    border-color: var(--primary-color) !important;
-    color: var(--primary-color) !important;
-    background-color: var(--primary-light) !important;
-}
-
-/* -------------------------
- *  4.2.1 General Button Styling (st.button)
- *  - 일반 Streamlit 버튼 기본 스타일
- * ------------------------- */
-div[data-testid="stButton"] button {
-    border: 1px solid var(--border-light) !important;
-    background-color: var(--bg-white) !important;
-    color: var(--text-secondary) !important;
-    padding: 8px 16px !important;
-    border-radius: var(--radius-pill) !important;
-    font-size: 0.95rem !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease !important;
-}
-
-div[data-testid="stButton"] button:hover {
-    border-color: var(--primary-color) !important;
-    color: var(--primary-color) !important;
-    background-color: var(--primary-light) !important;
-}
-
-/* -------------------------
- *  4.3 Primary Button
- * ------------------------- */
-button[kind="primary"] {
-    background-color: var(--primary-color) !important;
-    color: white !important;
-    border: none !important;
+::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    /* 아주 연한 회색으로 핸들만 표시 */
     border-radius: 10px !important;
-    padding: 12px 24px !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
+    border: 2px solid transparent !important;
 }
 
-button[kind="primary"]:hover {
-    background-color: var(--primary-hover) !important;
-    transform: translateY(-1px);
-    box-shadow: var(--btn-shadow);
+:root {
+    /* [Primary Colors] 브랜드 메인 컬러 */
+    --ottogi-yellow: #FFD400;
+    /* 오뚜기 3분카레 옐로우 (배경/강조) */
+    --ottogi-red: #D35400;
+    /* 오뚜기 매운맛 레드 (버튼/포인트) */
+
+    /* [Secondary Colors] 보조 컬러 */
+    --ottogi-red-hover: #FF8C00;
+    /* Hover 시 밝은 레드 */
+    --ottogi-bg-light: #FFFBF0;
+    /* 아주 연한 미색 (Hover 배경 등) */
+
+    /* [Base Colors] 기본 무채색 */
+    --ottogi-white: #FFFFFF;
+    /* 순백색 (컨테이너/텍스트) */
+    --ottogi-black: #000000;
+    /* 리얼 블랙 (테두리/텍스트) */
+    --ottogi-gray: #9CA3AF;
+    /* 회색 (비활성/설명 텍스트) */
+
+    /* [Utils] 디자인 유틸리티 */
+    --border-thick: 4px solid var(--ottogi-black);
+    --border-thin: 2px solid var(--ottogi-black);
+    --shadow-hard: 4px 4px 0px var(--ottogi-black);
+    --shadow-bold: 6px 6px 0px var(--ottogi-black);
+    --shadow-soft: 0px 2px 0px rgba(0, 0, 0, 0.1);
+
+    --radius-md: 12px;
+    --font-main: 'Pretendard', sans-serif;
 }
 
-/* -------------------------
- *  4.4 File Uploader
- * ------------------------- */
-div[data-testid="stFileUploader"] section {
-    background-color: var(--bg-card) !important;
-    border: 2px dashed var(--border-dashed) !important;
-    border-radius: var(--radius-md) !important;
-    padding: var(--spacing-md) !important;
-}
-
-/* -------------------------
- *  4.5 Text Input
- * ------------------------- */
-div[data-testid="stTextInput"] input {
-    border-radius: var(--radius-md) !important;
-    border: 1px solid var(--border-purple) !important;
-    padding: 12px 20px !important;
-    font-size: var(--font-size-base) !important;
-    background-color: var(--bg-card) !important;
-    color: #333 !important;
-}
-
-div[data-testid="stTextInput"] input::placeholder {
-    color: var(--text-placeholder) !important;
-}
-
-/* -------------------------
- *  4.6 Selectbox
- * ------------------------- */
-div[data-testid="stSelectbox"] div[data-baseweb="select"]>div {
-    border-radius: var(--radius-md) !important;
-    border: 1px solid var(--border-purple) !important;
-    background-color: var(--bg-card) !important;
-    padding: 2px 4px !important;
-}
-
-/* -------------------------
- *  4.7 TextArea
- * ------------------------- */
-div[data-testid="stTextArea"] textarea {
-    border-radius: var(--radius-md) !important;
-    border: 1px solid var(--border-purple) !important;
-    background-color: var(--bg-card) !important;
-    padding: 12px 20px !important;
-    font-size: var(--font-size-base) !important;
-    color: #333 !important;
-}
-
-/* -------------------------
- *  4.8 Expander
- * ------------------------- */
-div[data-testid="stExpander"] {
-    border: 1px solid var(--bg-light-purple) !important;
-    border-radius: var(--radius-md) !important;
-    background-color: var(--bg-white) !important;
-    box-shadow: none !important;
-}
-
-div[data-testid="stExpander"] summary {
-    font-weight: 600 !important;
-    color: var(--primary-color) !important;
+/* 2. Base Styles */
+.stApp {
+    background-color: var(--ottogi-yellow) !important;
+    font-family: var(--font-main);
+    color: var(--ottogi-black);
 }
 
 /* ============================================================
- *  5. LAYOUT - CATEGORY & GRID CONTAINERS
- *  - 카테고리, 그리드 시스템 등 Marker 기반 레이아웃
+ *  2026 Neo-AIG Design System: Retro Korean Mart (Ottogi Style)
+ *  Version: 2.2.0 (Refactored with Variables)
  * ============================================================ */
 
-/* 카테고리 전용 컨테이너 (흰색 배경) */
-div[data-testid="stVerticalBlock"]:has(> div:first-child .category-marker) {
-    background-color: var(--bg-white) !important;
-    border: 1px solid var(--border-purple) !important;
-    border-radius: var(--radius-lg) !important;
-    padding: var(--spacing-lg) !important;
-    margin-bottom: var(--spacing-md) !important;
+/* 1. Global Variables & Color Palette */
+:root {
+    /* [Primary Colors] 브랜드 메인 컬러 */
+    --ottogi-yellow: #FFD400;
+    /* 오뚜기 3분카레 옐로우 (배경/강조) */
+    --ottogi-red: #D35400;
+    /* 오뚜기 매운맛 레드 (버튼/포인트) */
+
+    /* [Secondary Colors] 보조 컬러 */
+    --ottogi-red-hover: #FF8C00;
+    /* Hover 시 밝은 레드 */
+    --ottogi-bg-light: #FFFBF0;
+    /* 아주 연한 미색 (Hover 배경 등) */
+
+    /* [Base Colors] 기본 무채색 */
+    --ottogi-white: #FFFFFF;
+    /* 순백색 (컨테이너/텍스트) */
+    --ottogi-black: #000000;
+    /* 리얼 블랙 (테두리/텍스트) */
+    --ottogi-gray: #9CA3AF;
+    /* 회색 (비활성/설명 텍스트) */
+
+    /* [Utils] 디자인 유틸리티 */
+    --border-thick: 4px solid var(--ottogi-black);
+    --border-thin: 2px solid var(--ottogi-black);
+    --shadow-hard: 4px 4px 0px var(--ottogi-black);
+    --shadow-bold: 6px 6px 0px var(--ottogi-black);
+    --shadow-soft: 0px 2px 0px rgba(0, 0, 0, 0.1);
+
+    --radius-md: 12px;
+    --font-main: 'Pretendard', sans-serif;
 }
 
-/* 카테고리 3열 그리드 적용 (Pills 컴포넌트용) */
-div[data-testid="stVerticalBlock"]:has(.category-grid-marker) div[data-testid="stPills"]>div {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: var(--spacing-sm) !important;
+/* 2. Base Styles */
+.stApp {
+    background-color: var(--ottogi-yellow) !important;
+    font-family: var(--font-main);
+    color: var(--ottogi-black);
 }
 
-/* 카테고리 Pills 버튼 스타일 강화 */
-div[data-testid="stVerticalBlock"]:has(.category-grid-marker) div[data-testid="stPills"] button {
-    border: 1px solid var(--border-purple) !important;
-    border-radius: var(--radius-md) !important;
-    padding: 12px 10px !important;
+/* Main Container Transparent */
+[data-testid="stMainBlockContainer"] {
+    background-color: transparent !important;
+    padding-top: 2rem !important;
 }
 
-/* ============================================================
- *  6. AI RECOMMENDATION SECTION
- *  - AI 추천 주제 영역 (연보라 배경)
- * ============================================================ */
-div[data-testid="stVerticalBlock"]:has(> div:first-child .reco-marker) {
-    background-color: var(--bg-analysis) !important;
-    border: 1px solid var(--border-analysis) !important;
-    border-radius: var(--radius-xl) !important;
-    padding: 24px 30px !important;
-    margin-top: 15px !important;
-    margin-bottom: 30px !important;
-}
-
-.reco-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 18px;
-    padding: 0;
-}
-
-.ai-close-btn {
-    color: #ADB5BD;
-    cursor: pointer;
-    font-size: 1.4rem;
-    font-weight: 300;
-}
-
-/* 닫기 버튼 전용 스타일 */
-div.reco-header-container button {
+/* 3. Common Container Style (Transparent by Default) */
+[data-testid="stVerticalBlockBorderWrapper"] {
     background: transparent !important;
     border: none !important;
-    color: #AAA !important;
+    box-shadow: none !important;
     padding: 0 !important;
-    font-size: 1.2rem !important;
-    line-height: 1 !important;
-    min-width: 20px !important;
-    width: 20px !important;
-    height: 20px !important;
+    margin: 0 !important;
+}
+
+/* 4. Button Styles */
+.stButton>button {
+    border-radius: var(--radius-md) !important;
+    font-weight: 700 !important;
+    box-shadow: 2px 2px 0px var(--ottogi-black) !important;
+    transition: all 0.1s ease-in-out !important;
+    border: 2px solid var(--ottogi-black) !important;
+    padding: 14px 20px !important;
+    /* 세로폭 4px 증가 (기존 10px) */
+}
+
+/* Primary Button: Forsythia Yellow (개나리색) */
+.stButton>button[kind="primary"] {
+    background: #FFCE00 !important;
+    /* 개나리색 */
+    color: var(--ottogi-black) !important;
+    /* 검정 글씨 */
+    border: 3px solid var(--ottogi-black) !important;
+    box-shadow: var(--shadow-bold) !important;
+    transform: translate(-3px, -3px) !important;
+    transition: all 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+}
+
+.stButton>button[kind="primary"] p {
+    color: var(--ottogi-black) !important;
+    font-weight: 800 !important;
+}
+
+.stButton>button[kind="primary"]:hover {
+    background: #FFD400 !important;
+    transform: translate(-5px, -5px) !important;
+    box-shadow: 8px 8px 0px var(--ottogi-black) !important;
+}
+
+.stButton>button[kind="primary"]:active {
+    transform: translate(3px, 3px) !important;
+    box-shadow: 0px 0px 0px var(--ottogi-black) !important;
+}
+
+/* Secondary Button: White with Black Border */
+.stButton>button[kind="secondary"] {
+    background: var(--ottogi-white) !important;
+    color: var(--ottogi-black) !important;
+    border: 3px solid var(--ottogi-black) !important;
+    box-shadow: 2px 2px 0px var(--ottogi-black) !important;
+    transition: all 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+}
+
+.stButton>button[kind="secondary"]:hover {
+    background: var(--ottogi-bg-light) !important;
+    color: var(--ottogi-red) !important;
+    border-color: var(--ottogi-red) !important;
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 4px 4px 0px var(--ottogi-black) !important;
+}
+
+.stButton>button[kind="secondary"]:active {
+    background: var(--ottogi-red) !important;
+    color: var(--ottogi-white) !important;
+    border-color: var(--ottogi-black) !important;
+    transform: translate(2px, 2px) !important;
+    box-shadow: 0px 0px 0px var(--ottogi-black) !important;
+}
+
+/* 5. Input Fields - Yellow Theme */
+div[data-testid="stTextInput"]>div>div>input,
+div[data-testid="stNumberInput"]>div>div>input,
+div[data-testid="stTextArea"]>div>div>textarea {
+    background-color: #FFFDE7 !important;
+    /* 연노랑 배경 */
+    border: 3px solid var(--ottogi-black) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--ottogi-black) !important;
+    box-shadow: 2px 2px 0px var(--ottogi-black) !important;
+}
+
+div[data-testid="stTextInput"]>div>div>input:focus,
+div[data-testid="stNumberInput"]>div>div>input:focus,
+div[data-testid="stTextArea"]>div>div>textarea:focus {
+    border-color: var(--ottogi-yellow) !important;
+    /* 진한 노랑 테두리 */
+    box-shadow: 4px 4px 0px var(--ottogi-black) !important;
+}
+
+/* 6. File Uploader */
+div[data-testid="stFileUploader"] section {
+    background-color: var(--ottogi-white) !important;
+    border: 3px dashed var(--ottogi-red) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 24px !important;
+    transition: all 0.2s ease !important;
+}
+
+div[data-testid="stFileUploader"] section:hover {
+    background-color: var(--ottogi-bg-light) !important;
+    border-color: var(--ottogi-red-hover) !important;
+}
+
+/* 7. Pills (Selection) */
+[data-testid="stPills"] button {
+    border: 2px solid var(--ottogi-black) !important;
+    background: var(--ottogi-white) !important;
+    color: var(--ottogi-black) !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+}
+
+/* Selected State */
+.stButton>button[kind="primary"],
+[data-testid="stPills"] button[aria-selected="true"] {
+    background-color: var(--ottogi-red) !important;
+    color: var(--ottogi-white) !important;
+    border: 4px solid var(--ottogi-black) !important;
+    box-shadow: var(--shadow-bold) !important;
+    transform: translate(-2px, -2px);
+    transition: all 0.1s ease-in-out !important;
+}
+
+[data-testid="stPills"] button[aria-selected="true"]:active {
+    box-shadow: 0px 0px 0px var(--ottogi-black) !important;
+    transform: translate(4px, 4px) !important;
+}
+
+.stButton>button[kind="primary"] div p,
+.stButton>button[kind="primary"] p {
+    font-weight: 800 !important;
+    color: var(--ottogi-white) !important;
+}
+
+/* 9. STEP 2: Analysis Cards */
+[data-testid="stVerticalBlockBorderWrapper"]:has(.analysis-marker) {
+    background: var(--ottogi-white) !important;
+    border: var(--border-thick) !important;
+    box-shadow: 6px 6px 0px var(--ottogi-black) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 24px !important;
+    margin: 16px 0 !important;
+    animation: slide-from-right 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) both !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"]:has(.reco-marker),
+[data-testid="stVerticalBlockBorderWrapper"]:has(.ai-marker) {
+    background: var(--ottogi-white) !important;
+    border: var(--border-thick) !important;
+    box-shadow: var(--shadow-hard) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 20px !important;
+    animation: slide-from-right 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) both !important;
+}
+
+@keyframes slide-from-right {
+    0% {
+        transform: translateX(100px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Title Buttons */
+.title-candidate-wrapper button {
+    background: var(--ottogi-white) !important;
+    border: 2px solid var(--ottogi-black) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px 20px !important;
+    font-weight: 600 !important;
+    color: var(--ottogi-black) !important;
+    text-align: left !important;
+    box-shadow: 2px 2px 0px var(--ottogi-black) !important;
+    transition: all 0.15s ease !important;
+    margin-bottom: 4px !important;
+    width: 100%;
+}
+
+.title-candidate-wrapper button:hover {
+    background: var(--ottogi-yellow) !important;
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 4px 4px 0px var(--ottogi-black) !important;
+    color: var(--ottogi-black) !important;
+    border-color: var(--ottogi-black) !important;
+}
+
+/* Apply Buttons */
+button[key*="apply_mood_title"],
+button[key*="apply_title"] {
+    background: var(--ottogi-red) !important;
+    color: var(--ottogi-white) !important;
+    border: 2px solid var(--ottogi-black) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: 3px 3px 0px var(--ottogi-black) !important;
+}
+
+/* Analysis Inputs */
+.analysis-input-box input {
+    background: var(--ottogi-white) !important;
+    border: 3px solid var(--ottogi-black) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px 16px !important;
+    font-weight: 600 !important;
+    color: var(--ottogi-black) !important;
+}
+
+/* Skeleton */
+.element-container:has(.reco-marker),
+.element-container:has(.analysis-marker) {
+    display: none;
+}
+
+/* ============================================================
+ * [Override] Streamlit Header Customization (Thin & Fixed)
+ * ============================================================ */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+[data-testid="stAppViewContainer"]>.main {
+    padding-top: 50px !important;
+    padding-bottom: 60px !important;
+}
+
+/* ============================================================
+ * [UI] Ottogi Custom Components (Global Layout)
+ * ============================================================ */
+
+
+
+/* 2. 하단 푸터 (Footer) */
+.ottogi-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    /* 0.7 오퍼서티 검정바 */
+    color: var(--ottogi-white) !important;
+    /* 다시 흰색으로 */
+    padding: 0.4rem 2rem !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    z-index: 100000 !important;
+}
+
+.ottogi-footer p {
+    color: var(--ottogi-gray) !important;
+    font-size: 0.75rem !important;
+}
+
+/* 3. 상단 헤더 카드 (Title Box) */
+.ottogi-header-card {
+    background-color: var(--ottogi-white) !important;
+    border: 4px solid var(--ottogi-black) !important;
+    padding: 2rem !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 8px 8px 0px 0px var(--ottogi-black) !important;
+    margin-top: 2rem !important;
+    margin-bottom: 2rem !important;
+}
+
+/* ============================================================
+ * [New] Step 1 Cover / Hero Section (Retro 3-Min Style)
+ * ============================================================ */
+
+/* Hero Container */
+.ottogi-hero {
+    text-align: center;
+    margin-bottom: 4rem;
+    position: relative;
+    padding-top: 2rem;
+}
+
+/* Logo Image Area */
+.ottogi-logo-container {
+    display: inline-block;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.ottogi-logo-container:hover {
+    transform: scale(1.05);
+}
+
+/* Main Logo (Using Emoji or Image) */
+.ottogi-main-logo {
+    font-size: 8rem;
+    /* Emoji fallback size */
+    width: 28rem;
+    max-width: 100%;
+    margin: 0 auto;
+    filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.2));
+    animation: pop-in 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+/* Tagline Pill */
+.ottogi-tagline {
+    font-family: 'Jua', sans-serif;
+    /* Fallback to styled font */
+    font-size: 1.5rem;
+    color: rgba(0, 0, 0, 0.8);
+    background-color: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(4px);
+    padding: 0.75rem 2rem;
+    border-radius: 9999px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    display: inline-block;
+    margin-top: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    animation: pulse-slow 3s infinite;
+}
+
+/* Floating Badges */
+.ottogi-badge {
+    position: absolute;
+    background-color: white;
+    border: 4px solid black;
+    padding: 0.5rem 1rem;
+    border-radius: 1rem;
+    box-shadow: 4px 4px 0px 0px black;
+    animation: float 3s ease-in-out infinite;
+    z-index: 10;
+}
+
+.ottogi-badge.top-right {
+    top: -1.5rem !important;
+    right: -2rem !important;
+    transform: rotate(12deg);
+    /* Fallback */
+    animation: float-right 3s ease-in-out infinite !important;
+    /* Specific Animation */
+    animation-delay: 0.5s;
+}
+
+.ottogi-badge.top-right:hover {
+    transform: rotate(20deg) scale(1.1) !important;
+    animation: none !important;
+    /* Pause on hover */
+}
+
+.ottogi-badge.top-right span {
+    color: var(--ottogi-red) !important;
+    font-family: 'Black Han Sans', sans-serif !important;
+    font-size: 1.25rem !important;
+    font-weight: 900 !important;
+}
+
+.ottogi-badge.bottom-left {
+    bottom: 1rem !important;
+    left: -2rem !important;
+    background-color: #FF9800 !important;
+    /* Orange Accent */
+    border-radius: 50% !important;
+    padding: 0.75rem !important;
+    transform: rotate(-12deg);
+    /* Fallback */
+    animation: float-left 3s ease-in-out infinite !important;
+    /* Specific Animation */
+    animation-delay: 1.2s;
+}
+
+.ottogi-badge.bottom-left:hover {
+    transform: rotate(-25deg) scale(1.1) !important;
+    animation: none !important;
+}
+
+/* Animations */
+/* Animations */
+@keyframes pop-in {
+    0% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* New: Float with Rotation (Right: 12deg) */
+@keyframes float-right {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(12deg);
+    }
+
+    50% {
+        transform: translateY(-10px) rotate(12deg);
+    }
+}
+
+/* New: Float with Rotation (Left: -12deg) */
+@keyframes float-left {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(-12deg);
+    }
+
+    50% {
+        transform: translateY(-10px) rotate(-12deg);
+    }
+}
+
+@keyframes pulse-slow {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.8;
+        transform: scale(0.98);
+    }
+}
+
+/* ============================================================
+ * [NEW] Neo-Brutalist Cooking Window UI System
+ * ============================================================ */
+
+/* === 1. COOKING HEADER (Icon Box + Title + Subtitle) === */
+.cooking-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0.5rem !important;
+}
+
+/* Spicy Red Icon Box */
+.cooking-header .icon-box {
+    background-color: #D35400 !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 10px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    border: 3px solid #000000 !important;
+    box-shadow: 3px 3px 0px #000000 !important;
 }
 
-div.reco-header-container button:hover {
-    color: var(--text-secondary) !important;
-    background: rgba(0, 0, 0, 0.05) !important;
-    border-radius: 50% !important;
+.cooking-header .icon-box span {
+    color: #FFFFFF !important;
+    font-size: 1.4rem !important;
 }
 
-/* ============================================================
- *  7. TITLE CANDIDATE BUTTONS
- *  - 추천 제목 버튼 (알약 형태)
- * ============================================================ */
-div.title-candidate-wrapper {
-    margin-bottom: var(--spacing-sm) !important;
+/* Main Title - Pretendard Black 900 */
+.cooking-header .main-title {
+    font-family: 'Pretendard', 'Black Han Sans', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 1.6rem !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    letter-spacing: -0.5px !important;
 }
 
-div.title-candidate-wrapper button {
-    background-color: var(--bg-white) !important;
-    border: 1px solid #E6E9FC !important;
-    border-radius: var(--radius-full) !important;
-    padding: 14px 28px !important;
-    text-align: left !important;
-    justify-content: flex-start !important;
-    color: var(--text-purple-blue) !important;
-    font-size: var(--font-size-md) !important;
+/* Subtitle - Gray with Dashed Underline */
+.cooking-header .subtitle {
+    font-family: 'Pretendard', sans-serif !important;
     font-weight: 500 !important;
-    width: auto !important;
-    max-width: 100% !important;
-    box-shadow: var(--title-btn-shadow) !important;
-    transition: all 0.2s ease !important;
+    font-size: 0.95rem !important;
+    color: #6B7280 !important;
+    border-bottom: 2px dashed #000000 !important;
+    padding-bottom: 3px !important;
+    margin-left: auto !important;
 }
 
-div.title-candidate-wrapper button:hover {
-    border-color: var(--primary-color) !important;
-    background-color: var(--bg-white) !important;
-    box-shadow: 0 6px 15px rgba(98, 74, 255, 0.08) !important;
-    transform: translateY(-1px);
+/* === 2. COOKING WINDOW TITLE BAR (Dark Red Top) === */
+.cooking-window-titlebar {
+    background-color: #B91C1C !important;
+    height: 32px !important;
+    border: 4px solid #000000 !important;
+    border-bottom: none !important;
+    border-radius: 14px 14px 0 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    padding: 0 14px !important;
+    gap: 8px !important;
+    margin-top: 0.75rem !important;
 }
 
-/* ============================================================
- *  8. ANALYSIS RESULT SECTION
- *  - 분석 결과 컨테이너
- * ============================================================ */
-div[data-testid="stVerticalBlock"]:has(> div:first-child .analysis-marker) {
-    background-color: var(--bg-analysis) !important;
-    border: 1px solid var(--border-analysis) !important;
-    border-radius: var(--radius-xl) !important;
-    padding: 24px 30px !important;
-    margin-bottom: var(--spacing-md) !important;
-}
-
-/* 흰색 추천 주제 카드 (분석 결과 내부) */
-div[data-testid="stVerticalBlock"]:has(> div:first-child .recommendation-marker) {
-    background-color: var(--bg-white) !important;
-    border: 1px solid var(--border-purple) !important;
-    border-radius: var(--radius-md) !important;
-    padding: 10px 18px !important;
-    margin-top: 0px !important;
-}
-
-/* 제목적용 버튼 정렬 */
-div[data-testid="column"]:has(button[key*="apply_mood_title_final"]) {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-button[key*="apply_mood_title_final"] {
-    width: 100% !important;
-    max-width: 120px !important;
-    padding: 6px 12px !important;
-    border-radius: var(--radius-pill) !important;
-}
-
-/* ============================================================
- *  9. TITLE INPUT SECTION
- *  - 글 제목 입력 전용 스타일 (강조)
- * ============================================================ */
-.title-input-container div[data-testid="stTextInput"] input {
-    font-size: 18pt !important;
-    font-weight: 700 !important;
-    color: #444444 !important;
-    background-color: var(--bg-white) !important;
-    padding-top: 25px !important;
-    padding-bottom: 25px !important;
-    padding-left: 0px !important;
+/* Window Control Buttons (White Circles) */
+.cooking-window-titlebar .window-btn {
+    width: 12px !important;
+    height: 12px !important;
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    border-radius: 50% !important;
     border: none !important;
-    border-bottom: 2px solid #EEEEEE !important;
-    border-radius: 0px !important;
 }
 
-.title-input-container div[data-testid="stTextInput"] input:focus {
-    border-bottom: 2px solid var(--primary-color) !important;
+/* === 3. WINDOW BODY (Override st.container) === */
+/* Target ONLY container after cooking-window-titlebar */
+.element-container:has(.cooking-window-titlebar)+.element-container>div {
+    background-color: #FFFFFF !important;
+    border: 4px solid #000000 !important;
+    border-radius: 0 0 14px 14px !important;
+    padding: 1.25rem !important;
+    box-shadow: 8px 8px 0px #000000 !important;
+    margin-top: -4px !important;
+}
+
+/* === 4. CREAMY CURRY INPUT (Yellow Box) === */
+/* Input fields inside a cooking window */
+.element-container:has(.cooking-window-titlebar)+.element-container input[type="text"],
+.element-container:has(.cooking-window-titlebar)+.element-container div[data-testid="stTextInput"]>div>div>input {
+    background-color: #FFF9C4 !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 1rem 3rem 1rem 1rem !important;
+    font-family: 'Pretendard', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1.15rem !important;
+    color: #333333 !important;
     box-shadow: none !important;
 }
 
-.title-input-container div[data-testid="stTextInput"] input::placeholder {
-    color: #CCCCCC !important;
+.element-container:has(.cooking-window-titlebar)+.element-container input[type="text"]::placeholder,
+.element-container:has(.cooking-window-titlebar)+.element-container div[data-testid="stTextInput"]>div>div>input::placeholder {
+    color: #9CA3AF !important;
+    font-weight: 600 !important;
+}
+
+.element-container:has(.cooking-window-titlebar)+.element-container input[type="text"]:focus,
+.element-container:has(.cooking-window-titlebar)+.element-container div[data-testid="stTextInput"]>div>div>input:focus {
+    background-color: #FFFDE7 !important;
+    outline: 3px solid #D35400 !important;
+    outline-offset: -3px !important;
+}
+
+/* Hide input label inside container (header already shows title) */
+.element-container:has(.cooking-window-titlebar)+.element-container label {
+    display: none !important;
+}
+
+/* Caption styling inside container */
+.element-container:has(.cooking-window-titlebar)+.element-container [data-testid="stCaptionContainer"] p {
+    color: #6B7280 !important;
+    font-size: 0.85rem !important;
+    margin-top: 0.75rem !important;
+}
+
+/* REMOVED PREVIOUS CONFLICTING OVERRIDES */
+/* ============================================================
+ * [USER SPEC] Curry Header + Body Design (빨간 뚜껑 + 흰색 바디)
+ * ============================================================ */
+
+/* 1. 빨간 뚜껑 (헤더) + 툴팁 지원 */
+.curry-header-only {
+    position: relative !important;
+    background-color: #d35400 !important;
+    color: white !important;
+    border: 4px solid #000000 !important;
+    border-radius: 12px !important;
+    /* 위아래 모두 둥글게 */
+    padding: 10px 20px !important;
+    margin-bottom: 15px !important;
+    z-index: 100 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    cursor: pointer !important;
+}
+
+/* Tooltip Styling */
+.curry-header-only::after {
+    content: attr(data-tooltip);
+    position: absolute !important;
+    bottom: 120% !important;
+    left: 50% !important;
+    transform: translateX(-50%) scale(0.8) !important;
+    background-color: #FFF9C4 !important;
+    color: #000000 !important;
+    padding: 12px 18px !important;
+    border: 3px solid #000000 !important;
+    border-radius: 10px !important;
+    box-shadow: 4px 4px 0px #000000 !important;
+    white-space: nowrap !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    font-family: 'Pretendard', sans-serif !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.curry-header-only:hover::after {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateX(-50%) scale(1) !important;
+}
+
+
+.curry-header-only .icon {
+    font-size: 1.25rem !important;
+}
+
+.curry-header-only .title {
+    font-family: 'Black Han Sans', 'Pretendard', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 1.4rem !important;
+}
+
+.curry-header-only .subtitle {
+    font-size: 0.9rem !important;
+    opacity: 0.85 !important;
+    margin-left: auto !important;
+    border-left: 2px dashed rgba(255, 255, 255, 0.5) !important;
+    padding-left: 1rem !important;
+}
+
+/* 2. 보조 헤더 (Secondary) - 세로폭 1/3 축소 + 배경만 투명도 0.7 (글자 선명하게) */
+.curry-header-secondary {
+    position: relative !important;
+    background-color: rgba(211, 84, 0, 0.7) !important;
+    /* 오렌지 배경만 0.7 투명도 */
+    color: white !important;
+    border: 3px solid #000000 !important;
+    border-radius: 10px !important;
+    padding: 5px 15px !important;
+    /* 세로폭 확실히 축소 */
+    margin-bottom: 15px !important;
+    margin-top: 10px !important;
+    /* 위 항목과 숨통을 틔우기 위해 여백 추가 */
+    z-index: 100 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    /* 가로길이 기존 규격 유지 */
+}
+
+.curry-header-secondary .icon {
+    font-size: 1.1rem !important;
+    opacity: 1 !important;
+    /* 아이콘 선명하게 */
+}
+
+.curry-header-secondary .title {
+    font-family: 'Black Han Sans', 'Pretendard', sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 1.2rem !important;
+    opacity: 1 !important;
+    /* 글자 선명하게 */
+}
+
+/* [UI] Global Brand Watermark (BY DOGO) */
+.brand-watermark {
+    position: fixed !important;
+    transform: rotate(90deg) !important;
+    transform-origin: top right !important;
+    top: 100px !important;
+    right: 5px !important;
+    color: #D35400 !important;
+    font-weight: 900 !important;
+    font-size: 14pt !important;
+    z-index: 999999 !important;
+    font-family: 'Black Han Sans', 'Pretendard', sans-serif !important;
+    pointer-events: none !important;
+    text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.5);
+}
+
+.curry-header-secondary .subtitle {
+    font-size: 0.8rem !important;
+    opacity: 0.8 !important;
+    margin-left: auto !important;
+    border-left: 2px dashed rgba(255, 255, 255, 0.4) !important;
+    padding-left: 0.8rem !important;
+}
+
+/* 보조 헤더 다음의 입력창은 투명도 없이 선명하게 유지 */
+.element-container:has(.curry-header-secondary)+.element-container {
+    opacity: 1 !important;
+}
+
+/* REMOVED: White container for persona removed as requested */
+
+
+/* ============================================================
+ * [Fix] Marker-based styling for Step 1 container
+ * Using :has() to style container that contains the marker
+ * ============================================================ */
+
+/* REMOVED: Marker-based container removed as requested */
+/* Added direct styling for persona input after removal of container */
+[data-testid="stTextInput"]:has(+ .element-container [data-tooltip]) input,
+.element-container:has([data-tooltip])+.element-container input {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 10px !important;
+    padding: 12px 16px !important;
     font-weight: 700 !important;
 }
 
 /* ============================================================
- *  10. CUSTOM UI COMPONENTS
- *  - 커스텀 클래스 기반 컴포넌트들
+ * [UI] Notification (st.info) Styling - 연노랑 박스 (강제성 강화)
  * ============================================================ */
 
-/* 중앙 정렬 헤더 */
-.centered-header {
-    text-align: center;
-    margin-bottom: 30px;
+/* Outermost container targeting */
+div[data-testid="stNotification"] {
+    background-color: #FFF9C4 !important;
+    border: 3px solid #000000 !important;
+    border-radius: 12px !important;
+    box-shadow: 6px 6px 0px #000000 !important;
+    padding: 1.25rem !important;
+    margin-top: 10px !important;
+    margin-bottom: 25px !important;
 }
 
-.centered-header h2 {
-    font-size: var(--font-size-2xl);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 10px;
-}
-
-.centered-header p {
-    color: var(--text-secondary);
-    font-size: 1.1rem;
-}
-
-/* 섹션 라벨 (아이콘 포함) */
-.icon-label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-weight: 600;
-    color: var(--text-muted) !important;
-    font-size: var(--font-size-lg) !important;
-    margin-bottom: 15px !important;
-    letter-spacing: -0.01em;
-}
-
-/* 하단 뒤로가기 버튼 */
-div.back-btn-container {
-    display: flex;
-    justify-content: center;
-    margin-top: 30px;
-}
-
-div.back-btn-container button {
-    color: var(--text-purple-header) !important;
+/* Inner block override (Streamlit's emotion classes) */
+div[data-testid="stNotification"]>div {
     background-color: transparent !important;
-    border: 1px solid var(--border-purple) !important;
-    border-radius: var(--radius-pill) !important;
-    padding: 4px 12px !important;
-    font-size: var(--font-size-sm) !important;
-    transition: all 0.2s ease !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
 }
 
-div.back-btn-container button:hover {
-    background-color: var(--primary-light) !important;
-    border-color: var(--text-purple-header) !important;
+/* Text color override */
+div[data-testid="stNotification"] [data-testid="stMarkdownContainer"] p,
+div[data-testid="stNotification"] span,
+div[data-testid="stNotification"] div {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
 }
 
-/* ============================================================
- *  11. UTILITY CLASSES (필요 시 확장)
- * ============================================================ */
-/* 추후 필요한 유틸리티 클래스 추가 예정 */
+/* Icon (SVG) color override */
+div[data-testid="stNotification"] svg,
+div[data-testid="stNotification"] i {
+    fill: #000000 !important;
+    color: #000000 !important;
+    width: 24px !important;
+    height: 24px !important;
+}
+
+/* Global Scrollbar Styling (Transparent) - Fixed */
+::-webkit-scrollbar {
+    width: 10px !important;
+    background-color: transparent !important;
+}
+
+::-webkit-scrollbar-track {
+    background-color: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 10px !important;
+    border: 2px solid transparent !important;
+}
+
+/* 2. Base Styles - Animated Fluid Background - Fixed */
+.stApp {
+    background-color: #FFD400 !important;
+    background-image:
+        radial-gradient(at 0% 0%, hsla(50, 100%, 70%, 1) 0px, transparent 50%),
+        radial-gradient(at 50% 0%, hsla(45, 100%, 65%, 1) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, hsla(55, 100%, 75%, 1) 0px, transparent 50%),
+        radial-gradient(at 0% 50%, hsla(40, 100%, 60%, 1) 0px, transparent 50%),
+        radial-gradient(at 100% 50%, hsla(50, 100%, 70%, 1) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, hsla(45, 100%, 65%, 1) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, hsla(55, 100%, 75%, 1) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, hsla(40, 100%, 60%, 1) 0px, transparent 50%) !important;
+    background-size: 200% 200% !important;
+    animation: flow-background 20s ease infinite !important;
+    font-family: var(--font-main);
+    color: var(--ottogi-black);
+}
+
+@keyframes flow-background {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
