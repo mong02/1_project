@@ -1,0 +1,202 @@
+/* ============================================================
+ *  BentoBlog AI - Design System
+ *  Version: 1.0.0
+ *  Description: 2026 Neo-AIG Design System (Glassmorphism & Bento Grid)
+ * ============================================================ */
+
+/* ============================================================
+ *  1. FONT IMPORTS
+ * ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+
+/* ============================================================
+ *  2. GLOBAL VARIABLES (:root)
+ * ============================================================ */
+:root {
+    /* Backgrounds */
+    --bg-main: #F3F0E9;
+    /* Cloud White Base */
+    --bg-mesh: radial-gradient(at 90% 10%, rgba(240, 216, 204, 0.4) 0px, transparent 40%),
+        radial-gradient(at 10% 90%, rgba(202, 211, 193, 0.4) 0px, transparent 40%),
+        #F3F0E9;
+    --bg-card: rgba(255, 255, 255, 0.5);
+    --bg-card-hover: rgba(255, 255, 255, 0.7);
+    --bg-input: rgba(255, 255, 255, 0.8);
+    --bg-result: rgba(255, 255, 255, 0.3);
+
+    /* Accents & Gradients */
+    --accent-primary: #CAD3C1;
+    /* Green Lily (13-6006) */
+    --accent-secondary: #F0D8CC;
+    /* Peach Dust (12-1107) */
+    --primary-gradient: linear-gradient(135deg, #CAD3C1 0%, #BFCAB5 100%);
+    --shimmer-gradient: linear-gradient(90deg, #CAD3C1, #F0D8CC, #CAD3C1);
+
+    /* Text Colors - Professional Tones */
+    --text-primary: #2D2A26;
+    --text-body: #4A4741;
+    --text-secondary: #6A6761;
+    --text-muted: #8C8982;
+
+    /* Professional Multi-layered Shadows */
+    --shadow-sm: 0 2px 4px rgba(45, 42, 38, 0.02);
+    --shadow-md: 0 10px 30px -10px rgba(45, 42, 38, 0.08);
+    /* Soft, expansive professional shadow */
+    --shadow-lg: 0 20px 50px -15px rgba(45, 42, 38, 0.12);
+    --shadow-inset: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+
+    /* Layout */
+    --border-radius-card: 32px;
+    --border-radius-btn: 14px;
+    --border-main: 1px solid rgba(45, 42, 38, 0.06);
+    --font-main: 'Outfit', sans-serif;
+}
+
+/* ============================================================
+ *  3. BASE / GLOBAL STYLES
+ * ============================================================ */
+html,
+body,
+[data-testid="stAppViewContainer"] {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg-mesh);
+    /* Switched to mesh for glass to pop */
+    background-attachment: fixed;
+    color: var(--text-body);
+}
+
+/* ============================================================
+ *  4. STREAMLIT COMPONENT OVERRIDES
+ * ============================================================ */
+
+/* TextInput & Selectbox */
+div[data-testid="stSelectbox"],
+div[data-testid="stTextInput"]>div {
+    background-color: var(--bg-input) !important;
+    border-radius: var(--border-radius-btn) !important;
+    border: 1px solid rgba(45, 42, 38, 0.1) !important;
+    box-shadow: var(--shadow-sm) !important;
+    transition: all 0.3s ease !important;
+}
+
+div[data-testid="stSelectbox"]:hover,
+div[data-testid="stTextInput"]>div:hover {
+    border-color: var(--accent-primary) !important;
+}
+
+/* Base Button Styles */
+.stButton>button {
+    width: 100%;
+    border-radius: var(--border-radius-btn) !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.2px !important;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+/* Secondary Button (Default/Unselected) */
+.stButton>button[kind="secondary"] {
+    background: var(--bg-input) !important;
+    border: 1px solid rgba(45, 42, 38, 0.1) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Primary Button (Selected/Action) */
+.stButton>button[kind="primary"] {
+    background: var(--primary-gradient) !important;
+    border: 1px solid var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+.stButton>button:hover {
+    transform: translateY(-2px) !important;
+    filter: brightness(1.02);
+    box-shadow: var(--shadow-lg) !important;
+}
+
+/* ============================================================
+ *  5. CUSTOM UI COMPONENTS (Bento & Glassmorphism)
+ * ============================================================ */
+
+/* Bento Grid Container */
+.bento-container {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-auto-rows: minmax(100px, auto);
+    gap: 20px;
+    padding: 20px;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+
+/* Glassmorphism Card */
+.bento-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: var(--border-radius-card);
+    padding: 32px;
+    /* Increased padding for luxury feel */
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: var(--shadow-md), var(--shadow-inset);
+}
+
+.bento-card:hover {
+    transform: translateY(-6px);
+    background: var(--bg-card-hover);
+    box-shadow: var(--shadow-lg), var(--shadow-inset);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+/* Headers */
+h1,
+h2,
+h3 {
+    color: var(--text-primary);
+    font-weight: 800;
+    letter-spacing: -1px;
+}
+
+/* Shimmer Animation */
+.shimmer-text {
+    background: var(--shimmer-gradient);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+    to {
+        background-position: 200% center;
+    }
+}
+
+/* Result Box */
+.result-box {
+    background: var(--bg-result);
+    border-radius: 16px;
+    padding: 20px;
+    border-left: 4px solid var(--accent-primary);
+    margin-top: 15px;
+    line-height: 1.6;
+    border: 1px solid #E5E2DB;
+    border-left: 4px solid var(--accent-primary);
+}
+
+/* Tags */
+.tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--accent-secondary);
+    border: 1px solid var(--border-tag);
+    border-radius: 99px;
+    font-size: 0.8rem;
+    margin-right: 8px;
+    color: #8C7B74;
+    /* Darker Peach/Brown Text */
+}
