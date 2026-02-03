@@ -1,178 +1,281 @@
-import streamlit as st
+# agents/image_agent.py
+# =========================================================
+# [Bottom-up 방식] 개별 사진 정밀 분석 후 취합
+# =========================================================
 import ollama
 import json
 import re
-import uuid
-from datetime import datetime
+from typing import List, Dict, Any
 from collections import Counter
 
 from config import MODEL_VISION, MODEL_TEXT
 
+# =========================================================
+# [설정]
+# =========================================================
 MAX_TAGS = 6
 TOPIC_N = 2
 
-STOPWORDS = {
-    "사진","이미지","장면","제품","구성","포함","있는","위","아래","옆","앞","뒤",
-    "같은","위해","정도","부분","사용","가능","보임","보이는","있다","없다","그리고",
-    "너무","정말","느낌","분위기","순간","오늘","이번","그냥","관련"
-}
 
-def now_iso():
-    return datetime.now().isoformat(timespec="seconds")
-
-def new_id():
-    return str(uuid.uuid4())
-
-def intent_block(t: str) -> str:
-    t = (t or "").strip()
-    return f"[사용자 의도]\n{t}\n" if t else ""
-
-def pick_line(text: str, prefix: str) -> str:
-    for ln in (text or "").splitlines():
-        ln = ln.strip()
-        if ln.startswith(prefix):
-            return ln.replace(prefix, "", 1).strip()
-    return ""
-
-def clean_tokens_korean(text: str):
-    # 아주 단순 토큰화: 한글/숫자/영문/언더스코어 덩어리만
-    toks = re.findall(r"[0-9A-Za-z가-힣_]{2,}", text or "")
-    out = []
-    for t in toks:
-        tl = t.lower()
-        if tl in STOPWORDS:
-            continue
-        if re.match(r"^\d+$", t):
-            continue
-        out.append(t)
-    return out
-
-def local_tags_from_desc(desc: str, k: int = 4):
-    # 사진별 저장용 태그: 로컬 빈도 기반(가볍게)
-    toks = clean_tokens_korean(desc)
-    cnt = Counter(toks)
-    top = [w for w, _ in cnt.most_common(k)]
-    tags = []
-    for w in top:
-        tag = "#" + re.sub(r"[^0-9A-Za-z가-힣_]", "", w)
-        if len(tag) > 1 and tag not in tags:
-            tags.append(tag)
-    return tags if tags else ["#사진", "#기록"]
-
-def analyze_fact(image_bytes: bytes, user_intent: str) -> str:
+# =========================================================
+# [Step 1] Vision Model - 개별 이미지 정밀 분석
+# =========================================================
+def analyze_single_image(image_bytes: bytes, img_id: int, user_intent: str = "") -> Dict[str, Any]:
+    """
+    [Step 1] 단일 이미지를 정밀 분석하여 설명(desc)과 태그(tags)를 함께 추출합니다.
+    
+    Returns:
+        {"img_id": int, "desc": str, "tags": [str, ...]}
+    """
+    intent_section = f"[사용자 의도]\n{user_intent.strip()}\n" if user_intent else ""
+    
     prompt = f"""
-{intent_block(user_intent)}
-이미지를 보고 사실 기반으로만 설명한다.
+{intent_section}
+이 이미지를 정밀하게 분석하라.
 
-규칙:
-- 1~2문장
-- 보이는 것만
-- 추측/해석/감정 금지
+[출력 규칙]
+1. 설명: 보이는 장면을 사실 기반으로 1~2문장으로 서술 (추측/감정 금지)
+2. 태그: 이미지의 핵심 요소를 나타내는 명사 3~5개 (# 포함, 쉼표 구분)
 
-출력:
+[출력 형식 - 반드시 아래 형태로]
 설명: ...
+태그: #태그1, #태그2, #태그3
 """.strip()
 
-    r = ollama.chat(
-        model=MODEL_VISION,
-        messages=[{"role": "user", "content": prompt, "images": [image_bytes]}]
-    )
-    out = r["message"]["content"]
-    desc = pick_line(out, "설명:")
-    return desc if desc else out.strip()
+    try:
+        r = ollama.chat(
+            model=MODEL_VISION,
+            messages=[{"role": "user", "content": prompt, "images": [image_bytes]}]
+        )
+        out = r["message"]["content"]
+        
+        # 설명 추출
+        desc = ""
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("설명:"):
+                desc = line.replace("설명:", "", 1).strip()
+                break
+        if not desc:
+            desc = out.split("\n")[0].strip()  # fallback: 첫 줄
+        
+        # 태그 추출
+        tags = []
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("태그:"):
+                tag_part = line.replace("태그:", "", 1).strip()
+                # 쉼표 또는 공백으로 분리
+                raw_tags = re.split(r'[,\s]+', tag_part)
+                for t in raw_tags:
+                    t = t.strip()
+                    if t:
+                        # # 붙이기
+                        if not t.startswith("#"):
+                            t = "#" + t
+                        # 특수문자 정리
+                        t = "#" + re.sub(r'[^0-9A-Za-z가-힣_]', '', t.replace("#", ""))
+                        if len(t) > 1 and t not in tags:
+                            tags.append(t)
+                break
+        
+        # 태그가 없으면 설명에서 추출
+        if not tags:
+            tags = _extract_tags_from_text(desc, k=4)
+        
+        return {"img_id": img_id, "desc": desc, "tags": tags[:5]}
+        
+    except Exception as e:
+        print(f"[이미지 {img_id}] 분석 에러: {e}")
+        return {"img_id": img_id, "desc": "분석 실패", "tags": ["#사진"]}
 
-def unify_all_with_llama(user_intent: str, descriptions: list, merged_tags_hint: list, n: int = TOPIC_N):
-    joined = "\n".join(f"- {d}" for d in descriptions)
-    tag_hint = " ".join(merged_tags_hint) if merged_tags_hint else ""
 
+def _extract_tags_from_text(text: str, k: int = 4) -> List[str]:
+    """텍스트에서 빈도 기반으로 태그 추출 (백업용)"""
+    STOPWORDS = {
+        "사진", "이미지", "장면", "제품", "구성", "포함", "있는", "위", "아래", "옆", "앞", "뒤",
+        "같은", "위해", "정도", "부분", "사용", "가능", "보임", "보이는", "있다", "없다", "그리고",
+        "너무", "정말", "느낌", "분위기", "순간", "오늘", "이번", "그냥", "관련", "것", "수"
+    }
+    toks = re.findall(r"[가-힣A-Za-z0-9_]{2,}", text or "")
+    toks = [t for t in toks if t.lower() not in STOPWORDS and not re.match(r"^\d+$", t)]
+    cnt = Counter(toks)
+    return ["#" + w for w, _ in cnt.most_common(k)]
+
+
+# =========================================================
+# [Step 2] Text Model - 개별 분석 결과 취합 및 통합 기획
+# =========================================================
+def aggregate_and_plan(
+    individual_analyses: List[Dict[str, Any]], 
+    user_intent: str = "",
+    n_topics: int = TOPIC_N
+) -> Dict[str, Any]:
+    """
+    [Step 2] 개별 이미지 분석 결과들을 취합하여 통합 기획안을 생성합니다.
+    
+    Args:
+        individual_analyses: [{"img_id": 1, "desc": "...", "tags": [...]}, ...]
+        user_intent: 사용자의 의도
+        n_topics: 생성할 주제 후보 개수
+    
+    Returns:
+        {"merged_description", "mood", "tags", "topic_candidates", "best_topic"}
+    """
+    # 개별 분석 결과를 프롬프트용 텍스트로 변환
+    image_sections = []
+    all_tags_pool = []
+    
+    for item in individual_analyses:
+        img_id = item.get("img_id", "?")
+        desc = item.get("desc", "")
+        tags = item.get("tags", [])
+        
+        tag_str = ", ".join(tags) if tags else "(없음)"
+        image_sections.append(f"[사진 {img_id}]\n- 설명: {desc}\n- 태그: {tag_str}")
+        all_tags_pool.extend(tags)
+    
+    images_text = "\n\n".join(image_sections)
+    
+    # 태그 빈도 분석 (힌트용)
+    tag_freq = Counter(all_tags_pool)
+    frequent_tags = [t for t, _ in tag_freq.most_common(MAX_TAGS)]
+    tag_hint = ", ".join(frequent_tags) if frequent_tags else "(없음)"
+    
     prompt = f"""
-너는 사진 묶음 기반으로 블로그 기획을 완성하는 편집장이다.
+너는 개별 사진들의 파편화된 정보를 모아 하나의 완결된 기획으로 엮는 에디터다.
 
-아래 입력은 사진 N장의 사실 설명과 사용자 의도, 그리고 빈도 기반 태그 힌트다.
-이걸 바탕으로 통합 결과를 JSON으로만 출력한다.
-
-[우선순위 규칙]
-- 사용자 의도 키워드 + 통합 설명 + 태그에서 공통으로 반복되는 핵심 키워드가 있으면
-  반드시 그 키워드를 중심축으로 삼는다.
-
-[출력 요구]
-1) merged_description: 사진들을 나열하지 말고 한 덩어리로 정의하는 2~3문장 사실 설명(추측 금지)
-2) mood: 사물/브랜드/색상/위치/구성품 언급 없이 감정만 담은 1문장(20~35자)
-3) tags: 정확히 {MAX_TAGS}개, 명사 중심, 감정/무드 제외, 사실 설명 기반, 중복 없이
-4) topic_candidates: {n}개, 아래 “주제어 기준”을 만족하는 한 문장(길게)
-5) best_topic: 후보 중 1개를 그대로 선택
-
-[주제어 기준]
-- 각 후보는 한 문장
-- 높임말 사용하지 않는다
-- 제목처럼 짧지 않게 작성
-- 아래 요소 중 최소 3가지를 반드시 포함
-  1) 구체적인 독자/상황
-  2) 끝까지 읽게 만드는 문제 지점/판단 기준
-  3) 글에서 초점을 맞추는 범위
-  4) 다루지 않는 범위에 대한 암시
-- “설명한다/다룬다/알아본다” 금지
-- 키워드 나열/추상 남용 금지
-- 코드블록/목록/추가 설명 금지
+아래에 나열된 [사진 1...N]의 개별 설명과 태그를 모두 포함할 수 있는 **공통 분모**를 찾아내어,
+전체를 아우르는 매력적인 **제목**과 **분위기(Mood)**를 도출하라.
 
 [사용자 의도]
-{(user_intent or "").strip()}
+{(user_intent or "").strip() or "(없음)"}
 
-[사진 설명]
-{joined}
+[개별 사진 분석 결과]
+{images_text}
 
-[태그 힌트]
+[태그 빈도 힌트]
 {tag_hint}
 
-[출력 JSON 스키마]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[출력 지침]
+
+1) merged_description (통합 설명)
+   - 개별 사진들을 나열하지 말고, 전체를 관통하는 하나의 스토리로 2~3문장 서술
+   - 사실 기반, 추측 금지
+
+2) mood (분위기)
+   - 사물/브랜드/색상/위치 언급 없이, 감정과 분위기만 담은 1문장 (20~35자)
+   - 예: "설렘과 기대가 가득한 여행의 시작점"
+
+3) tags (통합 태그)
+   - 정확히 {MAX_TAGS}개, 명사 중심, 모든 사진을 아우르는 공통 키워드
+   - 감정/무드 단어 제외, # 포함
+
+4) topic_candidates (주제 후보)
+   - {n_topics}개, 각각 한 문장으로 작성
+   - 높임말 사용 금지
+   - 아래 요소 중 최소 3가지 포함:
+     a) 구체적인 독자/상황
+     b) 끝까지 읽게 하는 문제 지점/판단 기준
+     c) 글에서 초점을 맞추는 범위
+     d) 다루지 않는 범위 암시
+   - "설명한다/다룬다/알아본다" 같은 메타 표현 금지
+
+5) best_topic
+   - 후보 중 가장 매력적인 1개를 그대로 선택
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[출력 형식] - 반드시 JSON 객체 하나만 출력
+
 {{
   "merged_description": "string",
   "mood": "string",
-  "tags": ["#tag", "... (exactly {MAX_TAGS})"],
-  "topic_candidates": ["string", "... (exactly {n})"],
+  "tags": ["#tag1", "#tag2", ... (exactly {MAX_TAGS})],
+  "topic_candidates": ["string", ... (exactly {n_topics})],
   "best_topic": "string"
 }}
-
-반드시 JSON 객체 한 덩어리만 출력한다.
 """.strip()
 
-    r = ollama.chat(model=MODEL_TEXT, messages=[{"role": "user", "content": prompt}])
-    txt = r["message"]["content"]
-
-    # JSON 파싱 (안전)
     try:
-        return json.loads(txt)
-    except Exception:
-        m = re.search(r"\{.*\}", txt, re.S)
-        return json.loads(m.group(0)) if m else {}
+        r = ollama.chat(model=MODEL_TEXT, messages=[{"role": "user", "content": prompt}])
+        txt = r["message"]["content"]
+        
+        # JSON 파싱 (안전)
+        try:
+            result = json.loads(txt)
+        except json.JSONDecodeError:
+            # JSON 블록 추출 시도
+            m = re.search(r"\{.*\}", txt, re.S)
+            result = json.loads(m.group(0)) if m else {}
+        
+        # 태그 개수 보정
+        tags = result.get("tags", [])
+        tags = [t if t.startswith("#") else "#" + t for t in tags][:MAX_TAGS]
+        while len(tags) < MAX_TAGS:
+            if len(frequent_tags) > len(tags):
+                candidate = frequent_tags[len(tags)]
+                if candidate not in tags:
+                    tags.append(candidate)
+                else:
+                    tags.append(f"#태그{len(tags)+1}")
+            else:
+                tags.append(f"#태그{len(tags)+1}")
+        result["tags"] = tags
+        
+        return result
+        
+    except Exception as e:
+        print(f"[통합 기획] 에러: {e}")
+        return {
+            "merged_description": "통합 분석 실패",
+            "mood": "분석 중 오류 발생",
+            "tags": frequent_tags[:MAX_TAGS] if frequent_tags else ["#사진", "#기록"],
+            "topic_candidates": [],
+            "best_topic": ""
+        }
 
+
+# =========================================================
+# [메인 진입점] Step2에서 호출
+# =========================================================
 def analyze_image_agent(images: list, user_intent: str = "") -> str:
     """
-    [메인 진입점]
+    [메인 진입점 - Bottom-up 방식]
     Step 2에서 호출하는 함수입니다.
-    여러 장의 이미지를 받아 각각 사실 관계를 분석한 뒤, Llama로 통합하여 결과를 반환합니다.
+    
+    Process:
+        Step 1: 각 이미지별로 독립적인 정밀 분석 (desc + tags)
+        Step 2: 개별 분석 결과를 취합하여 통합 기획안 생성
+        Step 3: UI 호환 JSON 형식으로 반환
+    
+    Args:
+        images: 이미지 바이트 리스트 (단일 이미지도 가능)
+        user_intent: 사용자가 입력한 의도
+    
+    Returns:
+        JSON 문자열 (mood, tags, topic_candidates 등 포함)
     """
-    # 1. 이미지 리스트 처리 (단일 이미지일 경우 리스트로 변환)
+    # 이미지 리스트 처리 (단일 이미지일 경우 리스트로 변환)
     if not isinstance(images, list):
         images = [images]
-
-    # 2. 각 이미지별 사실(Fact) 추출 (Vision Model)
-    descriptions = []
-    all_tags = []
     
-    for img_bytes in images:
-        # 개별 이미지 분석
-        desc = analyze_fact(img_bytes, user_intent)
-        descriptions.append(desc)
-        # 로컬 태그 추출
-        all_tags.extend(local_tags_from_desc(desc))
-
-    # 3. 통합 및 기획 (Text Model)
-    # 수집된 사실들과 태그를 바탕으로 통합 기획안 생성
-    result_dict = unify_all_with_llama(user_intent, descriptions, all_tags)
-
-    # 4. 결과 반환 (UI와의 호환성을 위해 JSON 문자열로 변환)
-    return json.dumps(result_dict, ensure_ascii=False)
+    # ========== Step 1: 개별 이미지 정밀 분석 ==========
+    individual_analyses = []
+    
+    for idx, img_bytes in enumerate(images, start=1):
+        analysis = analyze_single_image(img_bytes, img_id=idx, user_intent=user_intent)
+        individual_analyses.append(analysis)
+    
+    # ========== Step 2: 취합 및 통합 기획 ==========
+    unified_result = aggregate_and_plan(
+        individual_analyses=individual_analyses,
+        user_intent=user_intent,
+        n_topics=TOPIC_N
+    )
+    
+    # ========== Step 3: UI 호환 형식으로 반환 ==========
+    return json.dumps(unified_result, ensure_ascii=False)
 
 
 def parse_image_analysis(raw_result: str):
@@ -180,6 +283,9 @@ def parse_image_analysis(raw_result: str):
     [결과 파싱]
     analyze_image_agent의 결과(JSON 문자열)를 받아
     UI에 표시할 mood(분위기/설명)와 tags(태그)를 분리합니다.
+    
+    Returns:
+        (display_text: str, tags: list)
     """
     try:
         # JSON 문자열을 딕셔너리로 변환
