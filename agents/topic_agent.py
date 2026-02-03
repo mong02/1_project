@@ -110,6 +110,12 @@ def generate_design_brief(ctx: Dict[str, Any], client: OllamaClient | None = Non
             "headline_style": options.get("headline_style"),
             "target_reader": (options.get("detail", {}) or {}).get("target_reader", {}).get("text"),
             "extra_request": (options.get("detail", {}) or {}).get("extra_request", {}).get("text"),
+            "seo_opt": bool(final_options.get("toggles", {}).get("seo_opt")),
+            #####step3.option 코드 추가
+            "evidence_label": bool(final_options.get("toggles", {}).get("evidence_label")),
+            "publish_package": bool(final_options.get("toggles", {}).get("publish_package")),
+            "ai_tone_remove_strong": bool(final_options.get("toggles", {}).get("ai_tone_remove_strong")),
+            "image_hashtag": bool(final_options.get("toggles", {}).get("image_hashtag")),
         },
         "constraints": {
             "target_chars": target_chars,
@@ -286,3 +292,4 @@ def analyze_blog_style(blog_url: str, client: OllamaClient | None = None) -> Dic
         }
 
     return result
+
