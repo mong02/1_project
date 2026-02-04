@@ -90,7 +90,6 @@ FINAL_OPTION_DEFAULTS = {
     "evidence_label": False,
     "publish_package": True,
     "anti_ai_strong": True,
-    "image_hashtag_reco": False,
 }
 
 
@@ -101,3 +100,19 @@ PROFILE_PATH = f"{ASSETS_DIR}/persona_profile.json"
 STEP2_PATH = f"{ASSETS_DIR}/step2_snapshot.json"
 STEP3_PATH = f"{ASSETS_DIR}/step3_snapshot.json"
 STEP4_PATH = f"{ASSETS_DIR}/step4_snapshot.json"
+
+# 말투 프리셋 예시
+TONE_PRESETS = {
+    "친근한": "이거 진짜 대박이죠? 저도 써보고 완전 반했잖아요. 여러분도 꼭 한번 체험해보세요!",
+    "차분한": "이러한 현상은 우리 일상에서 흔히 발견할 수 있습니다. 조금 더 깊이 있게 살펴보겠습니다.",
+    "정보중심": "핵심 포인트만 정리해드릴게요. 장단점과 체크리스트를 기준으로 선택하면 실수 확률이 줄어듭니다.",
+    "감성적인": "창틈으로 스며드는 햇살을 보며 문득 그런 생각이 들었습니다. 우리의 일상은 작은 기적들로 채워져 있다고.",
+}
+
+# Step4 최종 옵션 라벨
+FINAL_OPTION_LABELS = {
+    "seo_opt": "SEO 최적화",
+    "evidence_label": "근거 라벨 삽입",
+    "publish_package": "발행 패키지",
+    "anti_ai_strong": "AI티 강력 제거",
+}

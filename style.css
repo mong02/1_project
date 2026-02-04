@@ -60,51 +60,6 @@
     color: var(--ottogi-black);
 }
 
-/* ============================================================
- *  2026 Neo-AIG Design System: Retro Korean Mart (Ottogi Style)
- *  Version: 2.2.0 (Refactored with Variables)
- * ============================================================ */
-
-/* 1. Global Variables & Color Palette */
-:root {
-    /* [Primary Colors] 브랜드 메인 컬러 */
-    --ottogi-yellow: #FFD400;
-    /* 오뚜기 3분카레 옐로우 (배경/강조) */
-    --ottogi-red: #D35400;
-    /* 오뚜기 매운맛 레드 (버튼/포인트) */
-
-    /* [Secondary Colors] 보조 컬러 */
-    --ottogi-red-hover: #FF8C00;
-    /* Hover 시 밝은 레드 */
-    --ottogi-bg-light: #FFFBF0;
-    /* 아주 연한 미색 (Hover 배경 등) */
-
-    /* [Base Colors] 기본 무채색 */
-    --ottogi-white: #FFFFFF;
-    /* 순백색 (컨테이너/텍스트) */
-    --ottogi-black: #000000;
-    /* 리얼 블랙 (테두리/텍스트) */
-    --ottogi-gray: #9CA3AF;
-    /* 회색 (비활성/설명 텍스트) */
-
-    /* [Utils] 디자인 유틸리티 */
-    --border-thick: 4px solid var(--ottogi-black);
-    --border-thin: 2px solid var(--ottogi-black);
-    --shadow-hard: 4px 4px 0px var(--ottogi-black);
-    --shadow-bold: 6px 6px 0px var(--ottogi-black);
-    --shadow-soft: 0px 2px 0px rgba(0, 0, 0, 0.1);
-
-    --radius-md: 12px;
-    --font-main: 'Pretendard', sans-serif;
-}
-
-/* 2. Base Styles */
-.stApp {
-    background-color: var(--ottogi-yellow) !important;
-    font-family: var(--font-main);
-    color: var(--ottogi-black);
-}
-
 /* Main Container Transparent */
 [data-testid="stMainBlockContainer"] {
     background-color: transparent !important;
@@ -173,7 +128,7 @@
     color: var(--ottogi-red) !important;
     border-color: var(--ottogi-red) !important;
     transform: translate(-2px, -2px) !important;
-    box-shadow: 4px 4px 0px var(--ottogi-black) !important;
+    box-shadow: 4px 4px 4px var(--ottogi-black) !important;
 }
 
 .stButton>button[kind="secondary"]:active {

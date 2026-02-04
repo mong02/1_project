@@ -2,24 +2,22 @@
 # 사용자가 고른 모든 값 저장 구간 / 단계 이동 시 데이터 유지
 # 초기화 / 리셋 처리
 # 중요! 변수 이름은 여기서만 정의 (다른 파일은 직접 값 생성 금지)
-# 생성할 경우 변수 꼬여서 나중에 디버깅 과정 도중 꼬여버리게 됩니다 ㅠ
-# 담당자 1 명만 건드는 것으로 설정
 
 # state.py
 
-
-PERSONA_PATH = "data/persona.json"  # ← 너희 state.py에서 실제 쓰는 경로로 맞추기
-
-def delete_persona_from_disk():
-    if os.path.exists(PERSONA_PATH):
-        os.remove(PERSONA_PATH)
-
-
+# ✅ FIX: import를 파일 최상단으로 이동
 import copy
 import json
 import os
 import streamlit as st
 from config import PROFILE_PATH, STEP2_PATH, STEP3_PATH, STEP4_PATH, TARGET_CHARS, FINAL_OPTION_DEFAULTS
+
+
+# ✅ FIX: config의 PROFILE_PATH를 일관되게 사용
+def delete_persona_from_disk():
+    """페르소나 파일을 삭제합니다."""
+    if os.path.exists(PROFILE_PATH):
+        os.remove(PROFILE_PATH)
 
 
 # 단일 스키마 사용 ! DEFAULT_STATE
@@ -129,7 +127,6 @@ DEFAULT_STATE = {
             "evidence_label": FINAL_OPTION_DEFAULTS["evidence_label"],
             "publish_package": FINAL_OPTION_DEFAULTS["publish_package"],
             "anti_ai_strong": FINAL_OPTION_DEFAULTS["anti_ai_strong"],
-            "image_hashtag_reco": FINAL_OPTION_DEFAULTS["image_hashtag_reco"],
         },
         "params": {
             "seo": {"keyword_density_level": "medium", "use_h2_h3": True, "meta_description": True},
@@ -216,22 +213,40 @@ def mark_dirty(name: str):
 # 페르소나 프로필 저장/로드
 
 def save_persona_to_disk():
+    """페르소나를 JSON 파일로 저장합니다."""
     os.makedirs(os.path.dirname(PROFILE_PATH), exist_ok=True)
     with open(PROFILE_PATH, "w", encoding="utf-8") as f:
         json.dump(st.session_state["persona"], f, ensure_ascii=False, indent=2)
 
 
 def save_step2_to_disk():
+    """Step2 데이터를 JSON 파일로 저장합니다. 이미지는 제외됩니다."""
     os.makedirs(os.path.dirname(STEP2_PATH), exist_ok=True)
-    payload = {
-        "topic_flow": st.session_state.get("topic_flow"),
-        "options": st.session_state.get("options"),
-    }
-    with open(STEP2_PATH, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    
+    # 1. 세션 데이터 복사 (원본 훼손 방지)
+    topic_data = copy.deepcopy(st.session_state.get("topic_flow", {}))
+    options_data = copy.deepcopy(st.session_state.get("options", {}))
 
+    # 2. JSON 저장 불가한 '이미지 바이너리' 데이터 제거
+    # ⚠️ NOTE: 이미지는 세션에만 유지됩니다. 앱 재시작 시 다시 업로드 필요.
+    # TODO: 향후 assets/images 폴더에 파일로 저장하는 로직 추가 필요
+    if "images" in topic_data and "files" in topic_data["images"]:
+        topic_data["images"]["files"] = []  # 빈 리스트로 변경하여 저장
+
+    payload = {
+        "topic_flow": topic_data,
+        "options": options_data,
+    }
+
+    try:
+        with open(STEP2_PATH, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠️ Step2 저장 중 오류: {e}")
+        
 
 def save_step3_to_disk():
+    """Step3 설계안을 JSON 파일로 저장합니다."""
     os.makedirs(os.path.dirname(STEP3_PATH), exist_ok=True)
     payload = {"design_brief": st.session_state.get("design_brief")}
     with open(STEP3_PATH, "w", encoding="utf-8") as f:
@@ -239,6 +254,7 @@ def save_step3_to_disk():
 
 
 def save_step4_to_disk():
+    """Step4 최종 옵션을 JSON 파일로 저장합니다."""
     os.makedirs(os.path.dirname(STEP4_PATH), exist_ok=True)
     payload = {"final_options": st.session_state.get("final_options")}
     with open(STEP4_PATH, "w", encoding="utf-8") as f:
@@ -246,6 +262,7 @@ def save_step4_to_disk():
 
 
 def load_persona_from_disk():
+    """저장된 페르소나를 불러옵니다."""
     if not os.path.exists(PROFILE_PATH):
         return
     try:
@@ -261,6 +278,7 @@ def load_persona_from_disk():
                 dirty = copy.deepcopy(DEFAULT_STATE["dirty"])
             dirty["persona_changed"] = False
             st.session_state["dirty"] = dirty
-    except Exception:
+    except Exception as e:
         # 파일 깨짐/권한 이슈 등은 조용히 무시
+        print(f"⚠️ 페르소나 로딩 실패: {e}")
         return
