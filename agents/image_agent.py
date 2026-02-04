@@ -1,7 +1,6 @@
 # image_agent.py
 
 import json
-import os
 import re
 import time
 import base64  # <-- [중요] OpenAI 이미지 전송을 위해 필요
@@ -9,12 +8,18 @@ from typing import List, Dict, Any
 from collections import Counter
 
 # [1] 환경설정 및 라이브러리 로드
-from dotenv import load_dotenv
 from openai import OpenAI, RateLimitError
 import ollama
 
-# config에서 모델명 가져오기
-from config import MODEL_VISION, MODEL_TEXT
+# config에서 모델명/모드 가져오기
+from config import (
+    MODEL_VISION,
+    MODEL_TEXT,
+    API_KEY,
+    BASE_URL,
+    resolve_api_mode,
+    normalize_openai_model,
+)
 
 # 프롬프트 로더 추가
 from utils.prompt_loader import load_prompt, render_prompt
@@ -22,31 +27,13 @@ from utils.prompt_loader import load_prompt, render_prompt
 # =========================================================
 # 🔐 환경설정 및 모드 자동 감지 (하이브리드 로직)
 # =========================================================
-# env 파일 로드
-if os.path.exists(".env"):
-    load_dotenv(".env")
-elif os.path.exists("env.txt"):
-    load_dotenv("env.txt")
-else:
-    load_dotenv()
-
-API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY")
-BASE_URL = os.getenv("OPENAI_API_BASE") or os.getenv("LLM_BASE_URL")
-
-# API 모드 결정 로직
-ENV_API_MODE = os.getenv("API_MODE", "").lower()
-if ENV_API_MODE in ["openai", "ollama"]:
-    API_MODE = ENV_API_MODE
-elif API_KEY and str(API_KEY).startswith("sk-"):
-    # 키가 있고 sk-로 시작하면 OpenAI로 간주
-    API_MODE = "openai"
-else:
-    API_MODE = "ollama"
+# API 모드 결정 로직 (config와 동일한 기준)
+API_MODE = resolve_api_mode()
 
 # 모델명 안전장치 (OpenAI 모드인데 로컬 모델명이면 gpt-4o로 강제)
 if API_MODE == "openai":
-    USE_MODEL_VISION = "gpt-4o" if "gpt" not in MODEL_VISION.lower() else MODEL_VISION
-    USE_MODEL_TEXT = "gpt-4o" if "gpt" not in MODEL_TEXT.lower() else MODEL_TEXT
+    USE_MODEL_VISION = normalize_openai_model(MODEL_VISION)
+    USE_MODEL_TEXT = normalize_openai_model(MODEL_TEXT)
 else:
     USE_MODEL_VISION = MODEL_VISION
     USE_MODEL_TEXT = MODEL_TEXT
