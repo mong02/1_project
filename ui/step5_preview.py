@@ -78,9 +78,15 @@ def render(ctx):
         col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
+            # st.markdown("""
+            #     <div style="display: flex; align-items: center; gap: 8px;">
+            #         <h3 style="margin:0; font-weight:800; color:#E30613;">작성이 완료되었습니다!</h3>
+            #     </div>
+            # """, unsafe_allow_html=True)
             st.markdown("""
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <h3 style="margin:0; font-weight:800; color:#E30613;">작성이 완료되었습니다!</h3>
+                <div class="curry-header-only">
+                    <span class="title">작성이 완료되었습니다!</span>
+                    <span class="subtitle">AI 셰프가 정성껏 차린 한 상차림입니다</span>
                 </div>
             """, unsafe_allow_html=True)
             role = st.session_state['persona'].get('role_job', 'AI Editor')
@@ -116,8 +122,8 @@ def render(ctx):
     # 1. 제목 (TITLE)
     with st.container(border=True):
         st.markdown("""
-            <div style="margin-bottom:12px; border-bottom:2px solid #000; padding-bottom:8px;">
-                <span style="font-size:1.1rem; font-weight:800; color:#000;">제목</span>
+            <div class="curry-header-only" style="margin-bottom:12px;">
+                <span class="title">제목</span>
             </div>
         """, unsafe_allow_html=True)
         st.markdown(f"<h2 style='margin:0; font-weight:800; color:#E30613;'>{content.get('title', '제목 없음')}</h2>", unsafe_allow_html=True)
@@ -125,8 +131,8 @@ def render(ctx):
     # 2. 서론 (INTRO)
     with st.container(border=True):
         st.markdown("""
-            <div style="margin-bottom:12px; border-bottom:2px solid #000; padding-bottom:8px;">
-                <span style="font-size:1.1rem; font-weight:800; color:#000;">서론 및 대표 이미지</span>
+            <div class="curry-header-only" style="margin-bottom:12px;">
+                <span class="title">서론 및 대표 이미지</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -149,8 +155,8 @@ def render(ctx):
     # 3. 본문 (MAIN BODY)
     with st.container(border=True):
         st.markdown("""
-            <div style="margin-bottom:12px; border-bottom:2px solid #000; padding-bottom:8px;">
-                <span style="font-size:1.1rem; font-weight:800; color:#000;">본문 내용</span>
+            <div class="curry-header-only" style="margin-bottom:12px;">
+                <span class="title">본문 내용</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -163,13 +169,53 @@ def render(ctx):
     # 4. 결론 및 해시태그 (Combined)
     with st.container(border=True):
         st.markdown("""
-            <div style="margin-bottom:12px; border-bottom:2px solid #000; padding-bottom:8px;">
-                <span style="font-size:1.1rem; font-weight:800; color:#000;">결론 및 해시태그</span>
+            <div class="curry-header-only" style="margin-bottom:12px;">
+                <span class="title">결론 및 해시태그</span>
             </div>
         """, unsafe_allow_html=True)
         
         conclusion = content.get("conclusion_markdown") or content.get("outro") or ""
         hashtags = content.get("hashtags") or []
+        image_guide = content.get("image_guide") or ""
+        image_plan = content.get("image_plan") or {}
+        
+        # 2026-02-04: 이미지 배치 플랜 카드 추가
+        if image_guide or image_plan:
+            intro_idx = image_plan.get("intro_image_index")
+            body_idxs = image_plan.get("body_image_indices") or []
+            excluded_idxs = image_plan.get("excluded_image_indices") or []
+            
+            def _index_chip(label: str, value) -> str:
+                if value is None or value == "" or value == []:
+                    return ""
+                if isinstance(value, list):
+                    value = ", ".join([str(v + 1) if isinstance(v, int) else str(v) for v in value])
+                elif isinstance(value, int):
+                    value = str(value + 1)
+                return (
+                    "<span style='display:inline-block; background:#FFF3B0; padding:4px 10px; "
+                    "border-radius:16px; border:2px solid #000; font-weight:700; font-size:0.85rem; "
+                    "margin-right:6px; margin-bottom:6px; box-shadow:2px 2px 0px #000;'>"
+                    f"{label}: {value}</span>"
+                )
+            
+            chips_html = (
+                _index_chip("Intro", intro_idx)
+                + _index_chip("Body", body_idxs)
+                + _index_chip("제외", excluded_idxs)
+            )
+            
+            st.markdown(
+                f"""
+                <div style="border:2px solid #000; border-radius:14px; padding:14px; background:#FFE98A;">
+                    <div style="font-weight:800; margin-bottom:6px;">이미지 배치 플랜</div>
+                    <div style="margin-bottom:8px; line-height:1.6;">{image_guide or "이미지 배치 플랜이 준비되어 있습니다."}</div>
+                    <div>{chips_html}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown("<br>", unsafe_allow_html=True)
         
         if conclusion:
             _render_preview_markdown(conclusion)
