@@ -638,6 +638,133 @@ header[data-testid="stHeader"] {
     margin-top: 0.75rem !important;
 }
 
+/* ============================================================
+ * [NEW] Neo-Brutalist Cooking Window UI System
+ * ============================================================ */
+
+/* === 1. COOKING HEADER (Icon Box + Title + Subtitle) === */
+.cooking-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0.5rem !important;
+}
+
+/* Spicy Red Icon Box */
+.cooking-header .icon-box {
+    background-color: #D35400 !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 3px solid #000000 !important;
+    box-shadow: 3px 3px 0px #000000 !important;
+}
+
+.cooking-header .icon-box span {
+    color: #FFFFFF !important;
+    font-size: 1.4rem !important;
+}
+
+/* Main Title - Pretendard Black 900 */
+.cooking-header .main-title {
+    font-family: 'Pretendard', 'Black Han Sans', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 1.6rem !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    letter-spacing: -0.5px !important;
+}
+
+/* Subtitle - Gray with Dashed Underline */
+.cooking-header .subtitle {
+    font-family: 'Pretendard', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.95rem !important;
+    color: #6B7280 !important;
+    border-bottom: 2px dashed #000000 !important;
+    padding-bottom: 3px !important;
+    margin-left: auto !important;
+}
+
+/* === 2. COOKING WINDOW TITLE BAR (Dark Red Top) === */
+.cooking-window-titlebar {
+    background-color: #B91C1C !important;
+    height: 32px !important;
+    border: 4px solid #000000 !important;
+    border-bottom: none !important;
+    border-radius: 14px 14px 0 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    padding: 0 14px !important;
+    gap: 8px !important;
+    margin-top: 0.75rem !important;
+}
+
+/* Window Control Buttons (White Circles) */
+.cooking-window-titlebar .window-btn {
+    width: 12px !important;
+    height: 12px !important;
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    border-radius: 50% !important;
+    border: none !important;
+}
+
+/* === 3. WINDOW BODY (Override st.container) === */
+/* Target ONLY container after cooking-window-titlebar */
+.element-container:has(.cooking-window-titlebar)+.element-container>div {
+    background-color: #FFFFFF !important;
+    border: 4px solid #000000 !important;
+    border-radius: 0 0 14px 14px !important;
+    padding: 1.25rem !important;
+    box-shadow: 8px 8px 0px #000000 !important;
+    margin-top: -4px !important;
+}
+
+/* === 4. CREAMY CURRY INPUT (Yellow Box) === */
+/* Input fields inside a cooking window */
+.element-container:has(.cooking-window-titlebar)+.element-container input[type="text"],
+.element-container:has(.cooking-window-titlebar)+.element-container div[data-testid="stTextInput"]>div>div>input {
+    background-color: #FFF9C4 !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 1rem 3rem 1rem 1rem !important;
+    font-family: 'Pretendard', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1.15rem !important;
+    color: #333333 !important;
+    box-shadow: none !important;
+}
+
+.element-container:has(.cooking-window-titlebar)+.element-container input[type="text"]::placeholder,
+.element-container:has(.cooking-window-titlebar)+.element-container div[data-testid="stTextInput"]>div>div>input::placeholder {
+    color: #9CA3AF !important;
+    font-weight: 600 !important;
+}
+
+.element-container:has(.cooking-window-titlebar)+.element-container input[type="text"]:focus,
+.element-container:has(.cooking-window-titlebar)+.element-container div[data-testid="stTextInput"]>div>div>input:focus {
+    background-color: #FFFDE7 !important;
+    outline: 3px solid #D35400 !important;
+    outline-offset: -3px !important;
+}
+
+/* Hide input label inside container (header already shows title) */
+.element-container:has(.cooking-window-titlebar)+.element-container label {
+    display: none !important;
+}
+
+/* Caption styling inside container */
+.element-container:has(.cooking-window-titlebar)+.element-container [data-testid="stCaptionContainer"] p {
+    color: #6B7280 !important;
+    font-size: 0.85rem !important;
+    margin-top: 0.75rem !important;
+}
+
 /* REMOVED PREVIOUS CONFLICTING OVERRIDES */
 /* ============================================================
  * [USER SPEC] Curry Header + Body Design (빨간 뚜껑 + 흰색 바디)
