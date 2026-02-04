@@ -8,7 +8,13 @@ print()
 def render(ctx):
     persona = st.session_state["persona"]
 
-    st.subheader("작성자 페르소나 설정")
+    # st.subheader("작성자 페르소나 설정")
+    st.markdown("""
+    <div class="curry-header-only">
+        <span class="title">작성자 페르소나 설정</span>
+        <span class="subtitle">블로그의 주인이 될 캐릭터를 설정합니다</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 1) 직업 / 역할 (필수)
     persona["role_job"] = st.text_input(
@@ -20,7 +26,13 @@ def render(ctx):
     st.divider()
 
     # 2) 말투 (박스 5개 + 예시 카드)
-    st.subheader("선호하는 말투")
+    # st.subheader("선호하는 말투")
+    st.markdown("""
+    <div class="curry-header-only" style="margin-top: 2rem;">
+        <span class="title">선호하는 말투</span>
+        <span class="subtitle">독자에게 다가갈 목소리를 정해주세요</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     DIRECT_LABEL = "직접 입력"
 
@@ -80,7 +92,13 @@ def render(ctx):
         )
 
     # 3) MBTI (선택) - 박스 버튼형
-    st.subheader("MBTI (선택)")
+    # st.subheader("MBTI (선택)")
+    st.markdown("""
+    <div class="curry-header-only" style="margin-top: 2rem;">
+        <span class="title">MBTI (선택)</span>
+        <span class="subtitle">성격 유형에 따라 글의 온도가 달라집니다</span>
+    </div>
+    """, unsafe_allow_html=True)
     st.caption("원하는 MBTI를 클릭하세요. 다시 누르면 해제됩니다.")
 
     mbti_list = list(MBTI.keys())
@@ -112,6 +130,12 @@ def render(ctx):
     st.divider()
 
     # 4) 피하고 싶은 키워드
+    st.markdown("""
+    <div class="curry-header-only" style="margin-top: 2rem;">
+        <span class="title">피하고 싶은 키워드</span>
+        <span class="subtitle">글에서 제외하고 싶은 단어를 입력하세요</span>
+    </div>
+    """, unsafe_allow_html=True)
     raw = st.text_input(
         "피하고 싶은 키워드 (쉼표로 구분)",
         value=", ".join(persona["avoid_keywords"]),
@@ -124,7 +148,13 @@ def render(ctx):
 
     if ENABLE_BLOG_ANALYSIS:
         st.divider()
-        st.subheader("운영 중인 블로그 분석 (선택)")
+        # st.subheader("운영 중인 블로그 분석 (선택)")
+        st.markdown("""
+        <div class="curry-header-only" style="margin-top: 2rem;">
+            <span class="title">운영 중인 블로그 분석 (선택)</span>
+            <span class="subtitle">기존 블로그 스타일을 AI가 학습합니다</span>
+        </div>
+        """, unsafe_allow_html=True)
 
         # state 스키마 보장 (혹시 누락됐을 때 대비)
         if "blog" not in persona:
