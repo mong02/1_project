@@ -5,16 +5,81 @@
 
 # ollama_client.py
 import json
+import os
 import re
+import time
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 import ollama
-from config import MODEL_TEXT
+from openai import OpenAI, RateLimitError
+
+from config import (
+    MODEL_TEXT,
+    ASSETS_DIR,
+    API_KEY,
+    BASE_URL,
+    ENV_API_MODE,
+    resolve_api_mode,
+    normalize_openai_model,
+)
+
+# =========================================================
+# 🔐 환경설정 및 모드 자동 감지 (OpenAI/Ollama 하이브리드)
+# =========================================================
+# API 모드 결정 로직 (config와 동일한 기준)
+API_MODE = resolve_api_mode()
 
 
 class OllamaClient:
     def __init__(self, model: str = MODEL_TEXT):
         self.model = model
+        self.mode = API_MODE
+        self.client = None
+
+        # OpenAI 모드면 모델명 보정 (로컬 모델명 방지)
+        if self.mode == "openai":
+            self.model = normalize_openai_model(self.model)
+            if not API_KEY:
+                # 키가 없으면 강제로 Ollama로 전환
+                print("⚠️ [Warning] OpenAI 모드이나 API Key가 없습니다. Ollama로 전환됩니다.")
+                self.mode = "ollama"
+                self.model = MODEL_TEXT
+            else:
+                self.client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+
+        # 현재 모델/모드 기록 (assets에 로그)
+        self._log_model_usage()
+
+    def _log_model_usage(self) -> None:
+        try:
+            os.makedirs(ASSETS_DIR, exist_ok=True)
+            log_path = os.path.join(ASSETS_DIR, "model_usage.log")
+            record = {
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "mode": self.mode,
+                "model": self.model,
+                "base_url": BASE_URL if self.mode == "openai" else None,
+                "env_api_mode": ENV_API_MODE or None,
+                "api_key_present": bool(API_KEY),
+            }
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception:
+            # 로깅 실패는 기능에 영향 주지 않도록 무시
+            pass
+
+    def _retry_openai(self, func):
+        """OpenAI Rate Limit 재시도 로직"""
+        for i in range(3):
+            try:
+                return func()
+            except RateLimitError:
+                print(f"⏳ Rate Limit. Retrying in {2**(i+1)}s...")
+                time.sleep(2**(i+1))
+            except Exception as e:
+                raise e
+        raise Exception("OpenAI API Retry Failed")
 
     @staticmethod
     def _strip_code_fences(text: str) -> str:
@@ -88,6 +153,20 @@ class OllamaClient:
         temperature: float = 0.4,
         top_p: float = 0.9,
     ) -> str:
+        if self.mode == "openai" and self.client:
+            def _call():
+                return self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_role},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=temperature,
+                    top_p=top_p,
+                ).choices[0].message.content
+
+            return self._retry_openai(_call) or ""
+
         res = ollama.chat(
             model=self.model,
             messages=[
