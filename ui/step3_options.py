@@ -1,6 +1,3 @@
-# step3_topic.py
-
-
 import streamlit as st
 from datetime import datetime
 
@@ -14,49 +11,91 @@ def _inject_styles():
         <style>
         .brief-wrap { max-width: 1024px; margin: 0 auto; }
 
-        .persona-pill{
-            display:flex; align-items:center; gap:10px;
-            background:#fff; color:#111827;
-            border:1px solid #E6E9F2;
-            border-radius:14px;
-            padding:14px 16px;
-            margin:12px 0 18px 0;
-            box-shadow:0 6px 18px rgba(18,18,18,.05);
+        /* Persona Pill: 공중에 뜬 입체 카드 스타일 */
+        .persona-pill {
+            display: flex; align-items: center; gap: 10px;
+            background: #FFFFFF; color: #000000;
+            border: var(--neobrutal-border-thick) !important;
+            border-radius: var(--border-radius) !important;
+            padding: 16px 20px;
+            margin: 12px 0 24px 0;
+            box-shadow: var(--neobrutal-shadow-lg) !important;
+            transition: all 0.2s ease;
         }
-        .persona-pill .icon{
-            width:28px; height:28px;
-            border-radius:50%;
-            background:#F3F4F6;
-            display:flex; align-items:center; justify-content:center;
-            font-size:14px;
+        .persona-pill:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0px #000000 !important;
         }
 
-        .brief-card{
-            border:1px solid #E6E9F2;
-            border-radius:16px;
-            padding:18px 20px;
-            margin-bottom:16px;
-            background:#fff;
-            box-shadow:0 2px 10px rgba(18,18,18,.04);
+        .persona-pill .icon {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--bg-main) !important; /* 오뚜기 옐로우 */
+            color: #000000;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            border: 2px solid #000000;
         }
-        .brief-card h4{
-            margin:0 0 10px 0;
-            font-size:14px;
-            color:#7A8199;
-            letter-spacing:.02em;
-        }
-        .brief-title{ font-size:20px; font-weight:700; }
-        .brief-muted{ color:#6B7280; font-size:13px; }
 
-        .chip{
-            display:inline-block;
-            padding:6px 10px;
-            margin:4px 6px 0 0;
-            border:1px solid #E6E9F2;
-            border-radius:999px;
-            background:#F8FAFF;
-            color:#4B5563;
-            font-size:12px;
+        /* Brief Card: 기본 네오브루탈 박스 */
+        .brief-card {
+            border: var(--neobrutal-border) !important;
+            border-radius: var(--border-radius) !important;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            background: #FFFFFF;
+            box-shadow: var(--neobrutal-shadow) !important;
+        }
+
+        /* H4: 무조건 스파이시 레드 (강조) */
+        .brief-card h4 {
+            margin: 0 0 12px 0;
+            font-size: 1.05rem;
+            color: var(--red-spicy) !important;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            text-transform: uppercase;
+        }
+
+        .brief-title { font-size: 22px; font-weight: 800; color: #000; }
+        .brief-muted { color: #666; font-size: 13px; font-weight: 500; }
+
+        /* Chip: 둥근 알약 대신 각진 스타일 */
+        .chip {
+            display: inline-block;
+            padding: 6px 14px;
+            margin: 4px 6px 0 0;
+            border: 2px solid #000000 !important;
+            border-radius: var(--border-radius) !important;
+            background: #FFFFFF;
+            color: #000000;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+
+        /* Equal Height Utility */
+        .brief-card-h {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .brief-card-h > div:last-child {
+            flex-grow: 1; /* 내용이 적어도 카드가 늘어나도록 */
+        }
+
+        /* Primary Button Override for "Generate" - Ultra Spicy */
+        button[kind="primary"] {
+            background: var(--red-spicy) !important;
+            border: 3px solid #000000 !important;
+            box-shadow: 4px 4px 0px #000000 !important;
+            font-size: 1.1rem !important;
+            padding: 14px 24px !important;
+        }
+        button[kind="primary"]:hover {
+            background: var(--red-mild) !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 6px 6px 0px #000000 !important;
         }
         </style>
         """,
@@ -108,13 +147,13 @@ def render(ctx: dict):
             st.rerun()
         return
 
-    # 생성 버튼: 자동 실행 대신 사용자가 눌렀을 때만 생성
+    # Step3 진입 시 자동 생성 (사용자 편의성 개선)
     if st.session_state["design_brief"]["status"] == "idle":
-        if st.button("설계안 생성", type="primary", use_container_width=True):
-            reset_from_step(3)
-            st.session_state["design_brief"]["status"] = "generating"
-            st.session_state["design_brief"]["error"] = None
-            st.rerun()
+        # 자동으로 설계안 생성 시작
+        reset_from_step(3)
+        st.session_state["design_brief"]["status"] = "generating"
+        st.session_state["design_brief"]["error"] = None
+        st.rerun()
 
     # generating 상태에서 실제 생성
     if st.session_state["design_brief"]["status"] == "generating":
@@ -153,7 +192,7 @@ def render(ctx: dict):
     st.markdown(
         f"""
         <div class="persona-pill">
-            <div class="icon">👤</div>
+            <div class="icon"></div>
             <div>
                 <div class="brief-muted">적용된 페르소나</div>
                 <div style="font-weight:700;">{_persona_line(persona)}</div>
@@ -204,45 +243,39 @@ def render(ctx: dict):
     length_text = f"공백 제외 약 {target_chars}자 내외"
     strategy_text = (design_brief.get("strategy", {}) or {}).get("text") or "입력 없음"
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(
-            f"""
-            <div class="brief-card">
+    # ROW 1: 톤앤매너 & 글 구성 (Pure CSS Grid for Equal Height)
+    st.markdown(
+        f"""
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; margin-bottom: 20px;">
+            <div class="brief-card brief-card-h" style="margin-bottom: 0;">
                 <h4>톤앤매너</h4>
-                <div>{tone_summary}</div>
+                <div style="flex-grow:1;">{tone_summary}</div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="brief-card">
-                <h4>길이</h4>
-                <div>{length_text}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c2:
-        st.markdown(
-            f"""
-            <div class="brief-card">
+            <div class="brief-card brief-card-h" style="margin-bottom: 0;">
                 <h4>글 구성</h4>
-                <div>{outline_summary}</div>
+                <div style="flex-grow:1;">{outline_summary}</div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="brief-card">
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ROW 2: 길이 & 전략 (Pure CSS Grid for Equal Height)
+    st.markdown(
+        f"""
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch;">
+            <div class="brief-card brief-card-h" style="margin-bottom: 0;">
+                <h4>길이</h4>
+                <div style="flex-grow:1;">{length_text}</div>
+            </div>
+            <div class="brief-card brief-card-h" style="margin-bottom: 0;">
                 <h4>전략</h4>
-                <div>{strategy_text}</div>
+                <div style="flex-grow:1;">{strategy_text}</div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.divider()
 

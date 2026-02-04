@@ -1,8 +1,8 @@
-#step1_persona.py
-
 import streamlit as st
-from config import MBTI
+from config import MBTI, TONE_PRESETS
 from state import reset_from_step, mark_dirty, save_persona_to_disk
+
+print()
 
 
 def render(ctx):
@@ -22,15 +22,9 @@ def render(ctx):
     # 2) 말투 (박스 5개 + 예시 카드)
     st.subheader("선호하는 말투")
 
-    TONE_PRESETS = {
-        "친근한": "이거 진짜 대박이죠? ㅎㅎ 저도 써보고 완전 반했잖아요~ 여러분도 꼭 한번 체험해보세요! 👍",
-        "차분한": "이러한 현상은 우리 일상에서 흔히 발견할 수 있습니다. 조금 더 깊이 있게 살펴보겠습니다.",
-        "정보중심": "핵심 포인트만 정리해드릴게요. 장단점과 체크리스트를 기준으로 선택하면 실수 확률이 줄어듭니다.",
-        "감성적인": "창틈으로 스며드는 햇살을 보며 문득 그런 생각이 들었습니다. 우리의 일상은 작은 기적들로 채워져 있다고.",
-    }
     DIRECT_LABEL = "직접 입력"
 
-    # ✅ 처음 진입 시 preset None이면 기본을 "친근한"으로 저장 (UI/검증 일치)
+    # 처음 진입 시 preset None이면 기본을 "친근한"으로 저장 (UI/검증 일치)
     if persona["tone"]["mode"] == "preset" and not persona["tone"]["preset"]:
         persona["tone"]["preset"] = "친근한"
         persona["tone"]["custom_text"] = ""
@@ -51,9 +45,11 @@ def render(ctx):
     for i, lab in enumerate(labels):
         with cols[i]:
             is_selected = (selected_label == lab)
-            btn_text = f"✅ {lab}" if is_selected else lab
+            btn_text = lab 
+            # 선택된 경우 type="primary" 적용 (오뚜기 레드 활성화)
+            btn_type = "primary" if is_selected else "secondary"
 
-            if st.button(btn_text, key=f"tone_{lab}", use_container_width=True):
+            if st.button(btn_text, key=f"tone_{lab}", type=btn_type, use_container_width=True):
                 if lab == DIRECT_LABEL:
                     persona["tone"]["mode"] = "custom"
                     persona["tone"]["preset"] = None
@@ -95,9 +91,11 @@ def render(ctx):
     for idx, mbti in enumerate(mbti_list):
         with cols[idx % 4]:
             is_selected = (selected == mbti)
-            label = f"✅ {mbti}" if is_selected else mbti
+            label = mbti  # 이모지 제거
+            # 선택된 경우 type="primary" 적용
+            btn_type = "primary" if is_selected else "secondary"
 
-            if st.button(label, key=f"mbti_{mbti}", use_container_width=True):
+            if st.button(label, key=f"mbti_{mbti}", type=btn_type, use_container_width=True):
                 if is_selected:
                     persona["mbti"] = {"type": None, "style_desc": None}
                 else:
@@ -122,7 +120,7 @@ def render(ctx):
     persona["avoid_keywords"] = [k.strip() for k in raw.split(",") if k.strip()]
 
     # 5️⃣ 운영 중인 블로그 분석 (선택)
-    ENABLE_BLOG_ANALYSIS = False
+    ENABLE_BLOG_ANALYSIS = True
 
     if ENABLE_BLOG_ANALYSIS:
         st.divider()
@@ -153,23 +151,29 @@ def render(ctx):
         if analyze_clicked:
             # ✅ 여기서 실제 분석 에이전트를 호출하도록 연결
             # (프로젝트 구조상 agent에 두는 게 정석)
-            try:
-                from agents.topic_agent import analyze_blog_style  # 너희 프로젝트에 이 함수가 있으면 사용
-                result = analyze_blog_style(persona["blog"]["url"])
-            except Exception as e:
-                # 함수가 아직 없거나 import 실패 시: 임시 더미 결과 (UI 테스트용)
-                result = {
-                    "tone": "친근하고 상냥한 대화체",
-                    "structure": "모바일 가독성을 고려한 짧은 문장 + 여백 위주 구성",
-                    "feel": "일상/유용한 정보를 친근하게 공유하는 느낌",
-                }
-
-            # 결과 저장 (스키마에 맞게)
-            persona["blog"]["analyzed_style"] = result
-            persona["blog"]["use_analysis"] = True
-            mark_dirty("persona_changed")
-            save_persona_to_disk()
-            st.rerun()
+            with st.spinner("블로그를 분석 중입니다..."):
+                try:
+                    from agents.topic_agent import analyze_blog_style
+                    result = analyze_blog_style(persona["blog"]["url"])
+                    
+                    # 결과가 비어있거나 모든 값이 비어있는지 체크
+                    if not result or not any(result.values()):
+                        st.error("분석 결과가 비어있습니다. 블로그 URL을 확인해주세요.")
+                        result = None
+                    else:
+                        # 결과 저장 (스키마에 맞게)
+                        persona["blog"]["analyzed_style"] = result
+                        persona["blog"]["use_analysis"] = True
+                        mark_dirty("persona_changed")
+                        save_persona_to_disk()
+                        st.success("블로그 분석이 완료되었습니다!")
+                        st.rerun()
+                        
+                except ImportError as e:
+                    st.error(f"analyze_blog_style 함수를 찾을 수 없습니다: {e}")
+                except Exception as e:
+                    st.error(f"블로그 분석 중 에러 발생: {str(e)}")
+                    st.caption(f"에러 타입: {type(e).__name__}")
 
         # 결과 표시(사진처럼 초록 박스 느낌은 st.success로 가장 비슷)
         if persona["blog"]["analyzed_style"]:
@@ -180,6 +184,8 @@ def render(ctx):
             tone = a.get("tone") or a.get("말투") or ""
             structure = a.get("structure") or a.get("구성") or a.get("writingStyle") or ""
             feel = a.get("feel") or a.get("느낌") or a.get("impression") or ""
+            signature_phrases = a.get("signature_phrases") or a.get("특징적 표현") or []
+            recommendations = a.get("recommendations") or a.get("권장사항") or ""
 
             if tone:
                 st.write(f"**말투:** {tone}")
@@ -187,6 +193,11 @@ def render(ctx):
                 st.write(f"**구성:** {structure}")
             if feel:
                 st.write(f"**느낌:** {feel}")
+            if signature_phrases:
+                phrases_text = ", ".join(signature_phrases) if isinstance(signature_phrases, list) else str(signature_phrases)
+                st.write(f"**특징적 표현:** {phrases_text}")
+            if recommendations:
+                st.info(f"{recommendations}")
     else:
         blog_state = persona.get("blog")
         if blog_state and (

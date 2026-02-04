@@ -1,6 +1,4 @@
-
-#step4_plan.py
-
+# ui/step4_plan.py
 import streamlit as st
 from state import init_state, reset_from_step, save_step4_to_disk
 
@@ -35,8 +33,8 @@ def render(ctx):
         st.session_state["step"] = 5
         st.rerun()
 
-    # 추가: 이전 단계 버튼 (기존 코드 변경 없이 아래에 추가)
-    if st.button("← 이전 단계", use_container_width=True):
+    # 이전 단계 버튼
+    if st.button("이전 단계", use_container_width=True):
         st.session_state["step"] = 3
         st.rerun()
 
