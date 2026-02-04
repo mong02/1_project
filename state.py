@@ -5,7 +5,7 @@
 
 # state.py
 
-# ✅ FIX: import를 파일 최상단으로 이동
+# FIX: import를 파일 최상단으로 이동
 import copy
 import json
 import os
@@ -13,7 +13,7 @@ import streamlit as st
 from config import PROFILE_PATH, STEP2_PATH, STEP3_PATH, STEP4_PATH, TARGET_CHARS, FINAL_OPTION_DEFAULTS
 
 
-# ✅ FIX: config의 PROFILE_PATH를 일관되게 사용
+# FIX: config의 PROFILE_PATH를 일관되게 사용
 def delete_persona_from_disk():
     """페르소나 파일을 삭제합니다."""
     if os.path.exists(PROFILE_PATH):
