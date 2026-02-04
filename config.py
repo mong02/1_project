@@ -14,6 +14,28 @@ from dotenv import load_dotenv
 _env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=_env_path)
 
+# API/모델 공통 설정
+API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY")
+BASE_URL = os.getenv("OPENAI_API_BASE") or os.getenv("LLM_BASE_URL")
+ENV_API_MODE = (os.getenv("API_MODE", "") or "").lower().strip()
+
+def resolve_api_mode(env_api_mode: str = ENV_API_MODE, api_key: str | None = API_KEY) -> str:
+    if env_api_mode == "openai":
+        return "openai" if (api_key and str(api_key).startswith("sk-")) else "ollama"
+    if env_api_mode == "ollama":
+        return "ollama"
+    if api_key and str(api_key).startswith("sk-"):
+        return "openai"
+    return "ollama"
+
+def normalize_openai_model(model_name: str, fallback: str = "gpt-4o") -> str:
+    name = (model_name or "").strip()
+    if not name:
+        return fallback
+    if "gpt" not in name.lower():
+        return fallback
+    return name
+
 MODEL_TEXT = (os.getenv("MODEL_TEXT") or "llama3.1:8b").strip()
 MODEL_VISION = (os.getenv("MODEL_VISION") or "llava:7b").strip()
 
