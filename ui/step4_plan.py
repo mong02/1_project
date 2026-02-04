@@ -5,7 +5,13 @@ from state import init_state, reset_from_step, save_step4_to_disk
 def render(ctx):
     init_state()  # 세션 상태 스키마 보장
 
-    st.header("최종 옵션 설정")
+    # st.header("최종 옵션 설정")
+    st.markdown("""
+    <div class="curry-header-only">
+        <span class="title">최종 옵션 설정</span>
+        <span class="subtitle">더 완벽한 글 작성을 위한 마지막 설정입니다</span>
+    </div>
+    """, unsafe_allow_html=True)
     st.caption("더 완벽한 글 작성을 위한 마지막 설정을 선택하세요.")
 
     toggles = st.session_state["final_options"]["toggles"]
