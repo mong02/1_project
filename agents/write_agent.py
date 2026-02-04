@@ -1,261 +1,56 @@
-#write_agent.py
 
-
-import json
-import os
-import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from config import TARGET_CHARS, N_HASHTAGS
 from agents.ollama_client import OllamaClient
-
-def _debug_log(hypothesis_id: str, location: str, message: str, data: Dict[str, Any], run_id: str = "pre-fix"):
-    return
-
-
-def _read_prompt(name: str) -> str:
-    path = os.path.join("prompts", f"{name}.md")
-    if not os.path.exists(path):
-        return ""
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
-
-
-def _safe_list(x: Any) -> List[Any]:
-    return x if isinstance(x, list) else []
-
-
-def _safe_str(x: Any) -> str:
-    return str(x).strip() if x is not None else ""
-
-
-def _unique_list(items: List[str]) -> List[str]:
-    seen = set()
-    out = []
-    for item in items:
-        key = str(item).strip()
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        out.append(key)
-    return out
-
-
-def _normalize_result(out: Dict[str, Any]) -> Dict[str, Any]:
-    if not isinstance(out, dict):
-        out = {}
-
-    title = _safe_str(out.get("title"))
-    summary = _safe_str(out.get("summary"))
-    meta_description = _safe_str(out.get("meta_description"))
-    post_markdown = _safe_str(out.get("post_markdown"))
-    outro = _safe_str(out.get("outro"))
-    image_guide = _safe_str(out.get("image_guide"))
-
-    hashtags = _safe_list(out.get("hashtags"))
-    hashtags = [f"#{_safe_str(t).lstrip('#')}" for t in hashtags if _safe_str(t)]
-    hashtags = hashtags[:N_HASHTAGS]
-
-    evidence_notes = _safe_list(out.get("evidence_notes"))
-    evidence_notes = [_safe_str(x) for x in evidence_notes if _safe_str(x)]
-
-    return {
-        "title": title,
-        "summary": summary,
-        "meta_description": meta_description,
-        "hashtags": hashtags,
-        "post_markdown": post_markdown,
-        "outro": outro,
-        "image_guide": image_guide,
-        "evidence_notes": evidence_notes,
-    }
-
-
-# 02.02 추가수정 : 사유 - 프롬프트만으로는 AI 말투가 남기 쉬워서, 생성 후 텍스트 후처리를 추가했습니다.
-_AI_TONE_PATTERNS = [
-    r"\b결론적으로\b",
-    r"\b요약하면\b",
-    r"\b정리하자면\b",
-    r"\b따라서\b",
-    r"\b그러므로\b",
-    r"\b한편\b",
-    r"\b또한\b",
-    r"\b추가로\b",
-    r"\b마지막으로\b",
-    r"\b전반적으로\b",
-    r"\b종합적으로\b",
-    r"\b본 글에서는\b",
-    r"\b이번 글에서는\b",
-    r"\b지금부터\b",
-    r"\b아래에서\b",
-    r"\b살펴보겠습니다\b",
-    r"\b알아보겠습니다\b",
-    r"\b설명하겠습니다\b",
-]
-
-_AI_OPENERS = [
-    "먼저,",
-    "우선,",
-    "다음으로,",
-    "마지막으로,",
-    "정리하면,",
-    "결론적으로,",
-]
-
-
-def _collapse_spaces(text: str) -> str:
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
-
-
-def _dedupe_lines(text: str) -> str:
-    lines = text.splitlines()
-    out: List[str] = []
-    prev = None
-    for ln in lines:
-        cur = ln.strip()
-        if prev is not None and cur and cur == prev:
-            continue
-        out.append(ln)
-        prev = cur if cur else prev
-    return "\n".join(out)
-
-
-def _soften_ai_tone(text: str, strong: bool = True) -> str:
-    if not text:
-        return ""
-
-    t = text
-
-    if strong:
-        for opener in _AI_OPENERS:
-            t = re.sub(rf"(^|\n\n){re.escape(opener)}\s*", r"\1", t)
-
-        for p in _AI_TONE_PATTERNS:
-            t = re.sub(p, "", t)
-
-    t = re.sub(r"\s{2,}", " ", t)
-    t = re.sub(r"\n[ \t]+\n", "\n\n", t)
-
-    t = _dedupe_lines(t)
-    t = _collapse_spaces(t)
-    return t
-
-
-_SENTENCE_RE = re.compile(
-    r".+?(?:다\.|요\.|니다\.|습니다\.|입니다\.|했다\.|됐다\.|[.!?])(?=\s|$)"
+from utils.prompt_loader import load_prompt, render_prompt
+from utils.text_utils import (
+    safe_list,
+    safe_str,
+    unique_list,
+    soften_ai_tone,
+    polish_text,
+    polish_title,
+    strip_special_markers,
+    ensure_sentence_end,
+    auto_paragraphs,
+    split_sentences,
 )
 
 
-def _split_sentences(text: str) -> List[str]:
-    t = text.strip()
-    if not t:
-        return []
-    sentences = _SENTENCE_RE.findall(t)
-    if sentences:
-        return [s.strip() for s in sentences if s.strip()]
-    parts = re.split(r"\.\s+", t)
-    out = []
-    for p in parts:
-        p = p.strip()
-        if not p:
-            continue
-        if not p.endswith("."):
-            p = f"{p}."
-        out.append(p)
-    return out
-
-
-def _auto_paragraphs(text: str) -> str:
-    if not text:
+def _get_mbti_guide(mbti_data: Any) -> str:
+    # mbti_data는 문자열일 수도 있고 딕셔너리일 수도 있음
+    mbti = ""
+    if isinstance(mbti_data, dict):
+        mbti = safe_str(mbti_data.get("type"))
+    else:
+        mbti = safe_str(mbti_data)
+    
+    mbti = mbti.upper().strip()
+    if not mbti or len(mbti) < 4:
         return ""
 
-    lines = text.splitlines()
-    out_lines: List[str] = []
-    buf: List[str] = []
+    # 간단한 MBTI 그룹별 가이드
+    guide = []
+    if "N" in mbti and "T" in mbti: # 분석가형 (INTJ, INTP, ENTJ, ENTP)
+        guide.append("[NT 성향 반영] 논리적 구조와 객관적 사실, 통찰력을 중시하세요. 결론부터 명확히 제시하는 것이 좋습니다.")
+    elif "N" in mbti and "F" in mbti: # 외교관형 (INFJ, INFP, ENFJ, ENFP)
+        guide.append("[NF 성향 반영] 독자의 감정에 깊이 공감하고 의미 부여를 하세요. 따뜻한 스토리텔링과 가치 전달에 집중하세요.")
+    elif "S" in mbti and "J" in mbti: # 관리자형 (ISTJ, ISFJ, ESTJ, ESFJ)
+        guide.append("[SJ 성향 반영] 검증된 경험과 구체적인 데이터를 바탕으로 신뢰감을 주세요. 체계적이고 안정적인 톤이 어울립니다.")
+    elif "S" in mbti and "P" in mbti: # 탐험가형 (ISTP, ISFP, ESTP, ESFP)
+        guide.append("[SP 성향 반영] 트렌디하고 감각적인 표현을 사용하세요. 지금 이 순간의 생생한 느낌과 자유로운 에너지를 담으세요.")
+    
+    if "E" in mbti:
+        guide.append("에너지가 넘치고 독자에게 말을 거는 듯한 적극적인 어조를 사용하세요.")
+    else: # I
+        guide.append("차분하고 사색적이며, 내면의 깊이 있는 생각을 나누는 어조를 사용하세요.")
 
-    def flush_buf():
-        if not buf:
-            return
-        para = " ".join([x.strip() for x in buf if x.strip()]).strip()
-        if not para:
-            buf.clear()
-            return
-
-        is_heading = para.lstrip().startswith("#")
-        is_list = para.lstrip().startswith(("-", "*")) or re.match(r"^\d+\.", para.strip())
-        if is_heading or is_list:
-            out_lines.append(para)
-            out_lines.append("")
-            buf.clear()
-            return
-
-        if len(para) > 220:
-            sentences = _split_sentences(para)
-            if len(sentences) >= 3:
-                group = 3 if len(sentences) >= 6 else 2
-                for i in range(0, len(sentences), group):
-                    out_lines.append(" ".join(sentences[i : i + group]).strip())
-                    out_lines.append("")
-                buf.clear()
-                return
-
-        out_lines.append(para)
-        out_lines.append("")
-        buf.clear()
-
-    for ln in lines:
-        if not ln.strip():
-            flush_buf()
-            continue
-
-        if ln.lstrip().startswith("#") or ln.lstrip().startswith(("-", "*")) or re.match(
-            r"^\d+\.", ln.strip()
-        ):
-            flush_buf()
-            out_lines.append(ln.strip())
-            out_lines.append("")
-            continue
-
-        buf.append(ln)
-
-    flush_buf()
-    return "\n".join(out_lines).strip()
+    return " ".join(guide)
 
 
-def _polish_text(text: str, level: str, humanize: bool, auto_paragraph: bool) -> str:
-    t = text or ""
-    if humanize:
-        t = _soften_ai_tone(t, strong=(level != "low"))
-    t = _collapse_spaces(t)
-    if auto_paragraph:
-        t = _auto_paragraphs(t)
-    return t.strip()
 
-
-def _polish_title(text: str, level: str) -> str:
-    t = _safe_str(text)
-    t = re.sub(r"[\"'“”‘’]", "", t)
-    if level == "high":
-        t = re.sub(r"\s{2,}", " ", t)
-    return t.strip()
-
-
-def _strip_special_markers(text: str) -> str:
-    if not text:
-        return ""
-    t = text
-    # markdown heading/list markers 제거
-    t = re.sub(r"^\s*#{1,6}\s+", "", t, flags=re.MULTILINE)
-    t = re.sub(r"^\s*[\-\*\d]+\.\s+", "", t, flags=re.MULTILINE)
-    # 특수 마커 제거 (#, *)
-    t = t.replace("#", "")
-    t = t.replace("*", "")
-    # 코드블록/백틱 제거
-    t = t.replace("`", "")
-    return _collapse_spaces(t)
 
 
 def _ensure_min_length(text: str, target_len: int, client: Optional[OllamaClient]) -> str:
@@ -275,209 +70,29 @@ def _ensure_min_length(text: str, target_len: int, client: Optional[OllamaClient
     except Exception:
         return t
     merged = f"{t}\n\n{extra}"
-    merged = _strip_special_markers(merged)
+    merged = strip_special_markers(merged)
     return merged
-
-
-def _ensure_sentence_end(text: str) -> str:
-    t = (text or "").rstrip()
-    if not t:
-        return ""
-    if t[-1] in [".", "!", "?", "…", "。", "！", "？"]:
-        return t
-    return t + "입니다."
 
 
 def _recommend_hashtags(main_kw: str, sub_kws: List[str], img_tags: List[str]) -> List[str]:
     pool = []
     for v in [main_kw] + sub_kws + img_tags:
-        v = _safe_str(v)
+        v = safe_str(v)
         if v:
             pool.append(v)
-    uniq = _unique_list([p.replace("#", "").strip() for p in pool])
+    uniq = unique_list([p.replace("#", "").strip() for p in pool])
     hashtags = [f"#{x}" for x in uniq][:N_HASHTAGS]
     return hashtags
 
 
 def _recommend_outro(main_kw: str, target_reader: str) -> str:
-    main_kw = _safe_str(main_kw) or "주제"
-    target_reader = _safe_str(target_reader) or "독자"
+    main_kw = safe_str(main_kw) or "주제"
+    target_reader = safe_str(target_reader) or "독자"
     return (
         f"오늘은 {main_kw}에 대해 핵심만 정리해봤습니다. "
         f"{target_reader}분들께 도움이 되었으면 좋겠습니다. "
         "실제로 적용해보고 느낀 점이나 질문이 있으면 댓글로 남겨주세요."
     )
-
-
-_PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z0-9_]+)\}")
-
-# =========================
-# Step5 분리 프롬프트 템플릿
-# =========================
-TPL_IMAGE_PLAN = """
-너는 블로그 편집자다. 아래 이미지들(설명 포함)을 보고,
-'Intro(대표 이미지 1장)' + 'Body(맥락에 맞게 몇 장)' + '제외'로 분류한다.
-
-[글 주제]
-{title}
-
-[설계안 요약]
-메인키워드: {main}
-타겟상황: {target_context}
-톤앤매너: {tone_summary}
-글구성(포맷): {outline_summary}
-
-[이미지 목록]
-{image_list}
-
-규칙:
-- Intro 대표 이미지는 반드시 1장만 선택
-- Body 이미지는 맥락상 도움이 되는 것만 선택(전부 쓸 필요 없음)
-- 맥락상 불필요/중복이면 excluded로 분류
-- 각 선택된 이미지에 대해 alt_text를 작성
-- index는 0부터 시작
-
-출력 JSON:
-{{
-  "intro_image_index": 0,
-  "body_image_indices": [1,2],
-  "excluded_image_indices": [3],
-  "alt_texts": {{
-    "0": "....",
-    "1": "...."
-  }}
-}}
-""".strip()
-
-TPL_TITLE_ONLY = """
-너는 10년차 전문 카피라이터다.
-
-[목표]
-- 블로그 상단에서 "클릭하고 싶게" 만드는 제목을 만든다.
-- 과장/광고티 금지, 하지만 궁금증/판단포인트/상황을 똑똑하게 건드린다.
-
-[절대 금지]
-- 해시태그, #, 이모지 과다, 느낌표 남발 금지
-- "소개합니다/알아보았습니다/정리해보겠습니다" 같은 메타 표현 금지
-- 너무 긴 제목(한 문장 안에서 자연스럽게)
-
-[입력 정보]
-주제: {title}
-메인 키워드: {main}
-서브 키워드(참고): {sub_csv}
-타겟: {target}
-지역/범위: {region}
-글 성격(Type): {post_type}
-헤드라인 스타일(참고): {headline_style}
-
-[출력 규칙]
-- title 1개만 생성
-- JSON만 출력
-
-출력 JSON:
-{{"title":"..."}}
-""".strip()
-
-TPL_INTRO_BODY_ONLY = """
-너는 전문 블로거다. 지금부터 매우 풍부하고 길게, 읽는 사람이 끝까지 읽는 글을 쓴다.
-
-[최우선 목표]
-- Intro와 Body의 완성도가 최우선이다.
-- '정보'만 나열하지 말고, 독자가 실제로 읽으며 고개 끄덕이게 되는 맥락과 판단을 제공한다.
-- 글이 짧아지면 실패다. 반드시 길이 가이드를 충족할 것.
-- ** 등, AI 가 사용하는 특수 기호 쓰지 말것
-- 본문은 최대한 글이 풍부하게
-
-[절대 금지]
-- 본문/서론에 해시태그 삽입 금지 (hashtags 필드에만)
-- 소제목 남발 금지(필요 최소만, 흐름 전환용 2~4개)
-- 체크리스트/번호 나열로만 때우기 금지
-- 메타 표현(소개합니다/알아보았습니다/정리해보겠습니다) 금지
-
-[작성자 페르소나]
-{persona_line}
-금지 표현: {avoid}
-{blog_style}
-
-[사용자 직접 입력(최우선)]
-지역/범위: {region}
-타겟 독자: {target}
-추가 요청사항: {extra}
-
-[설계안(Step3)]
-주제(글 제목/키워드): {title}
-글 성격(Type): {post_type}
-메인 키워드: {main}
-서브 키워드: {sub_csv}
-타겟 상황: {target_context}
-톤앤매너: {tone_summary}
-글 구성(포맷): {outline_summary}
-길이 가이드: {length_note}
-
-[이미지 배치 플랜]
-Intro 대표 이미지 index: {intro_idx}
-Body 이미지 indices: {body_idxs}
-제외 이미지 indices: {excluded_idxs}
-
-[이미지 설명(작성에 반드시 반영)]
-{image_list}
-
-[Step4 최종 옵션 적용(★실제 규칙★)]
-{final_options_block}
-
-[Step4 옵션을 반드시 적용하는 방법]
-- SEO 최적화 ON이면: 소제목(H2/H3)을 자연스럽게 사용하고, 메인 키워드를 서론/본문에 과하지 않게 포함
-- AI 티 제거 ON이면: 문장 길이 다양화, 반복 제거, 기계적인 접속사/전개 최소화
-- 근거 라벨 ON이면: 정보성 문장 일부에 (경험)/(추정)/(일반) 라벨을 아주 적게 포함
-- 발행 패키지 ON이면: package 필드를 스키마에 맞게 채운다 / OFF면 null
-
-[풍부한 글을 위한 강제 지침]
-- Intro: 최소 5~7문단 분량. (한 문단은 2~4문장 정도)
-- Body: 최소 9~14문단 분량. 단락마다 "상황 → 관찰 → 판단/근거 → 독자에게 도움이 되는 결론" 흐름 유지
-- 제품 리뷰라면: 단점/주의점도 반드시 1~2문단 포함(과장 없이)
-- 이미지가 있는 문단은: 이미지 설명을 토대로 '왜 이 장면/구성이 의미 있는지'를 자연스럽게 풀어쓴다.
-- 기술/제품 용어는 친절하게 풀되, 얕게 요약하지 말고 실제 사용 맥락을 풍부하게 넣는다.
-
-[해시태그 출력 규칙(최종 산출물용)]
-- hashtags 필드에만 출력(본문/서론 금지)
-- 반드시 10개 이상
-- 롱테일 형태(상황/타겟/의도 포함)
-- 지역/타겟이 있으면 일부 해시태그에 반드시 반영
-
-출력 JSON 스키마:
-{{
-  "intro_markdown": "string",
-  "body_markdown": "string",
-  "hashtags": ["#..."],
-  "image_guide": "string",
-  "image_plan": {{
-    "intro_image_index": 0,
-    "body_image_indices": [1,2],
-    "excluded_image_indices": [3],
-    "alt_texts": {{"0":"...","1":"..."}}
-  }},
-  "package": {{
-    "alt_titles": ["string","string","string"],
-    "faq": [{{"q":"string","a":"string"}},{{"q":"string","a":"string"}},{{"q":"string","a":"string"}}],
-    "cta": "string"
-  }}
-}}
-""".strip()
-
-
-def _render_prompt(template: str, data: Dict[str, Any]) -> str:
-    if not template:
-        return ""
-
-    def _value(k: str) -> str:
-        v = data.get(k)
-        if v is None:
-            return ""
-        if isinstance(v, (dict, list)):
-            return json.dumps(v, ensure_ascii=False, indent=2)
-        return _safe_str(v)
-
-    return _PLACEHOLDER_RE.sub(lambda m: _value(m.group(1)), template)
 
 
 def _safe_persona_line(persona: Dict[str, Any]) -> str:
@@ -497,7 +112,7 @@ def _safe_persona_line(persona: Dict[str, Any]) -> str:
 def _build_image_list(topic_flow: Dict[str, Any]) -> str:
     images = (topic_flow.get("images") or {}).get("files") or []
     img_analysis = (topic_flow.get("images") or {}).get("analysis") or {}
-    tags = _safe_list(img_analysis.get("tags"))
+    tags = safe_list(img_analysis.get("tags"))
     out = []
     for idx, img in enumerate(images):
         if isinstance(img, (bytes, bytearray)):
@@ -506,7 +121,7 @@ def _build_image_list(topic_flow: Dict[str, Any]) -> str:
         else:
             desc = f"이미지 {idx} (ref)"
         if tags:
-            desc += f" | tags: {', '.join([_safe_str(t) for t in tags[:5]])}"
+            desc += f" | tags: {', '.join([safe_str(t) for t in tags[:5]])}"
         out.append(desc)
     return "\n".join(out) if out else "(이미지 없음)"
 
@@ -538,52 +153,28 @@ def suggest_titles_agent(
     intensity: float = 0.2,
     client: Optional[OllamaClient] = None,
 ) -> List[str]:
-    # region agent log
-    _debug_log(
-        "H6",
-        "agents/write_agent.py:suggest_titles_agent:entry",
-        "enter suggest_titles_agent",
-        {
-            "category": _safe_str(category),
-            "subtopic": _safe_str(subtopic),
-            "mood": _safe_str(mood),
-            "user_intent": _safe_str(user_intent),
-            "temperature": temperature,
-            "intensity": intensity,
-        },
-    )
-    # endregion
-
     client = client or OllamaClient()
 
     try:
-        main_keyword = _safe_str(subtopic) or _safe_str(category) or "일상"
-        sub_keywords = _unique_list(
+        main_keyword = safe_str(subtopic) or safe_str(category) or "일상"
+        sub_keywords = unique_list(
             [
-                _safe_str(category),
-                _safe_str(subtopic),
-                _safe_str(mood),
-                _safe_str(user_intent),
+                safe_str(category),
+                safe_str(subtopic),
+                safe_str(mood),
+                safe_str(user_intent),
             ]
         )
     except Exception as e:
-        # region agent log
-        _debug_log(
-            "H6",
-            "agents/write_agent.py:suggest_titles_agent:build_inputs_error",
-            "error while building keywords",
-            {"error": str(e), "error_type": type(e).__name__},
-        )
-        # endregion
         raise
 
-    template = _read_prompt("write_title")
-    prompt = _render_prompt(
+    template = load_prompt("title_generation")
+    prompt = render_prompt(
         template,
         {
             "main_keyword": main_keyword,
             "sub_keywords": ", ".join([k for k in sub_keywords if k]),
-            "target_reader": _safe_str(user_intent) or "일반 독자",
+            "target_reader": safe_str(user_intent) or "일반 독자",
         },
     ).strip()
 
@@ -605,8 +196,8 @@ def suggest_titles_agent(
     except Exception:
         out = {}
 
-    titles = _safe_list((out or {}).get("titles"))
-    titles = [_safe_str(t) for t in titles if _safe_str(t)]
+    titles = safe_list((out or {}).get("titles"))
+    titles = [safe_str(t) for t in titles if safe_str(t)]
 
     if not titles:
         titles = [
@@ -616,15 +207,6 @@ def suggest_titles_agent(
             f"{main_keyword} 정리",
             f"{main_keyword} 후기",
         ]
-
-    # region agent log
-    _debug_log(
-        "H6",
-        "agents/write_agent.py:suggest_titles_agent:exit",
-        "exit suggest_titles_agent",
-        {"titles_count": len(titles)},
-    )
-    # endregion
 
     return titles
 
@@ -639,18 +221,6 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
     final_toggles = (ctx.get("final_options", {}) or {}).get("toggles", {}) or {}
     final_params = (ctx.get("final_options", {}) or {}).get("params", {}) or {}
     brief = ctx.get("design_brief", {}) or {}
-    # region agent log
-    _debug_log(
-        "H7",
-        "agents/write_agent.py:generate_post:entry",
-        "enter generate_post",
-        {
-            "has_topic_flow": bool(topic_flow),
-            "has_design_brief": bool(brief),
-            "has_final_options": bool(ctx.get("final_options")),
-        },
-    )
-    # endregion
 
     try:
         temperature_step5 = float(final_params.get("temperature_step5", 0.6))
@@ -661,7 +231,7 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
     input_keyword = (topic_flow.get("title", {}) or {}).get("input_keyword")
 
     img_analysis = (topic_flow.get("images", {}) or {}).get("analysis", {}) or {}
-    img_tags = [str(x).strip() for x in _safe_list(img_analysis.get("tags")) if str(x).strip()]
+    img_tags = [str(x).strip() for x in safe_list(img_analysis.get("tags")) if str(x).strip()]
 
     seo_opt = bool(final_toggles.get("seo_opt", False))
     publish_package = bool(final_toggles.get("publish_package", True))
@@ -671,34 +241,40 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
 
     image_list = _build_image_list(topic_flow)
     persona_line = _safe_persona_line(persona)
-    avoid = _safe_list(persona.get("avoid_keywords"))
-    blog_style = _safe_str((persona.get("blog") or {}).get("analyzed_style"))
+    avoid = safe_list(persona.get("avoid_keywords"))
+    blog_style = safe_str((persona.get("blog") or {}).get("analyzed_style"))
+    
+    # 말투 예시 추출 (Step1에서 설정한 값)
+    tone_info = persona.get("tone", {}) or {}
+    tone_preset = tone_info.get("preset") or ""
+    tone_custom = tone_info.get("custom_text") or ""
+    
+    # config.py의 TONE_PRESETS 사용
+    from config import TONE_PRESETS
+    if tone_preset and tone_preset in TONE_PRESETS:
+        tone_example = f"[{tone_preset} 말투 예시] {TONE_PRESETS[tone_preset]}"
+    elif tone_custom:
+        tone_example = f"[사용자 정의 말투] {tone_custom}"
+    else:
+        tone_example = "(말투 예시 없음)"
+    
     detail = options.get("detail", {}) or {}
-    region = _safe_str((detail.get("region_scope") or {}).get("text"))
-    target_reader = _safe_str((detail.get("target_reader") or {}).get("text"))
-    extra_request = _safe_str((detail.get("extra_request") or {}).get("text"))
+    region = safe_str((detail.get("region_scope") or {}).get("text"))
+    target_reader = safe_str((detail.get("target_reader") or {}).get("text"))
+    extra_request = safe_str((detail.get("extra_request") or {}).get("text"))
 
-    outline_summary = _safe_str((brief.get("outline", {}) or {}).get("summary"))
-    tone_summary = _safe_str((brief.get("tone_manner", {}) or {}).get("summary"))
-    target_context = _safe_str((brief.get("target_context", {}) or {}).get("text"))
-    length_note = _safe_str((brief.get("length", {}) or {}).get("note")) or "공백 제외 2000~2200자"
+    outline_summary = safe_str((brief.get("outline", {}) or {}).get("summary"))
+    tone_summary = safe_str((brief.get("tone_manner", {}) or {}).get("summary"))
+    target_context = safe_str((brief.get("target_context", {}) or {}).get("text"))
+    length_note = safe_str((brief.get("length", {}) or {}).get("note")) or "공백 제외 2000~2200자"
 
-    sub_kws = _safe_list((brief.get("keywords", {}) or {}).get("sub"))
-    sub_csv = ", ".join([_safe_str(k) for k in sub_kws if _safe_str(k)])
+    sub_kws = safe_list((brief.get("keywords", {}) or {}).get("sub"))
+    sub_csv = ", ".join([safe_str(k) for k in sub_kws if safe_str(k)])
 
     final_options_block = _build_final_options_block(ctx.get("final_options", {}) or {})
 
-    # region agent log
-    _debug_log(
-        "H15",
-        "agents/write_agent.py:generate_post:image_list",
-        "image list prepared",
-        {"image_count": len((topic_flow.get("images") or {}).get("files") or []), "list_len": len(image_list)},
-    )
-    # endregion
-
-    plan_prompt = _render_prompt(
-        TPL_IMAGE_PLAN,
+    plan_prompt = render_prompt(
+        load_prompt("image_plan"),
         {
             "title": main_kw or "",
             "main": (brief.get("keywords", {}) or {}).get("main") or main_kw,
@@ -708,8 +284,8 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
             "image_list": image_list,
         },
     )
-    title_prompt = _render_prompt(
-        TPL_TITLE_ONLY,
+    title_prompt = render_prompt(
+        load_prompt("final_title"),
         {
             "title": main_kw or "",
             "main": (brief.get("keywords", {}) or {}).get("main") or main_kw,
@@ -721,15 +297,6 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
         },
     )
 
-    # region agent log
-    _debug_log(
-        "H16",
-        "agents/write_agent.py:generate_post:title_prompt",
-        "title prompt prepared",
-        {"prompt_len": len(title_prompt)},
-    )
-    # endregion
-
     try:
         image_plan = client.generate_json(
             "블로그 편집자",
@@ -739,12 +306,13 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
     except Exception:
         image_plan = {}
 
-    intro_body_prompt = _render_prompt(
-        TPL_INTRO_BODY_ONLY,
+    intro_body_prompt = render_prompt(
+        load_prompt("blog_writing"),
         {
             "persona_line": persona_line,
-            "avoid": ", ".join([_safe_str(x) for x in avoid]),
+            "avoid": ", ".join([safe_str(x) for x in avoid]),
             "blog_style": blog_style,
+            "tone_example": tone_example,
             "region": region,
             "target": target_reader,
             "extra": extra_request,
@@ -761,16 +329,11 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
             "excluded_idxs": image_plan.get("excluded_image_indices"),
             "image_list": image_list,
             "final_options_block": final_options_block,
+            "mbti_guide": _get_mbti_guide(persona.get("mbti", {}) or {}),
         },
     )
-    # region agent log
-    _debug_log(
-        "H17",
-        "agents/write_agent.py:generate_post:intro_body_prompt",
-        "intro/body prompt prepared",
-        {"prompt_len": len(intro_body_prompt)},
-    )
-    # endregion
+
+
 
     try:
         title_out = client.generate_json(
@@ -808,17 +371,9 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
             raw = _extract_json_with_marker(text)
         except Exception:
             raw = _extract_json_with_marker(_repair_missing_brace(text))
-        intro_txt = _safe_str((raw or {}).get("intro_markdown"))
-        body_txt = _safe_str((raw or {}).get("body_markdown"))
+        intro_txt = safe_str((raw or {}).get("intro_markdown"))
+        body_txt = safe_str((raw or {}).get("body_markdown"))
         if not intro_txt or not body_txt:
-            # region agent log
-            _debug_log(
-                "H18",
-                "agents/write_agent.py:generate_post:intro_body_retry",
-                "empty intro/body detected; retrying",
-                {"intro_len": len(intro_txt), "body_len": len(body_txt)},
-            )
-            # endregion
             retry_prompt = (
                 intro_body_prompt
                 + "\n\n[주의] 직전 출력의 intro_markdown/body_markdown가 비어있습니다. 반드시 채워서 다시 출력하세요. 끝에 <END_JSON> 추가."
@@ -833,36 +388,9 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
                     raw = _extract_json_with_marker(retry_text)
                 except Exception:
                     raw = _extract_json_with_marker(_repair_missing_brace(retry_text))
-                # region agent log
-                _debug_log(
-                    "H20",
-                    "agents/write_agent.py:generate_post:intro_body_retry_result",
-                    "retry completed",
-                    {
-                        "intro_len": len(_safe_str((raw or {}).get("intro_markdown"))),
-                        "body_len": len(_safe_str((raw or {}).get("body_markdown"))),
-                    },
-                )
-                # endregion
             except Exception as retry_e:
-                # region agent log
-                _debug_log(
-                    "H21",
-                    "agents/write_agent.py:generate_post:intro_body_retry_error",
-                    "retry failed",
-                    {"error": str(retry_e), "error_type": type(retry_e).__name__},
-                )
-                # endregion
                 raise
     except Exception as e:
-        # region agent log
-        _debug_log(
-            "H19",
-            "agents/write_agent.py:generate_post:intro_body_error",
-            "intro/body generation failed",
-            {"error": str(e), "error_type": type(e).__name__},
-        )
-        # endregion
         # fallback: try shorter prompt via generate_text and manual JSON extract
         fallback_prompt = f"""
 너는 블로그 작가다. 아래 정보를 바탕으로 JSON만 출력하라.
@@ -870,44 +398,17 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
 [주제] {main_kw}
 [타겟 독자] {target_reader}
 [글 구성] {outline_summary}
-[섹션] {', '.join(_safe_list((brief.get('outline', {}) or {}).get('sections')))}
+[섹션] {', '.join(safe_list((brief.get('outline', {}) or {}).get('sections')))}
 
 출력 JSON:
 {{"intro_markdown":"...","body_markdown":"...","hashtags":["#..."],"image_guide":"...","image_plan":{{}},"package":null}}
 """.strip()
         try:
-            # region agent log
-            _debug_log(
-                "H22",
-                "agents/write_agent.py:generate_post:fallback_text",
-                "fallback generate_text start",
-                {"prompt_len": len(fallback_prompt)},
-            )
-            # endregion
             text = client.generate_text("전문 블로거", fallback_prompt, temperature=0.2)
             raw = client._extract_first_json_object(text)
-            # region agent log
-            _debug_log(
-                "H23",
-                "agents/write_agent.py:generate_post:fallback_parsed",
-                "fallback parse success",
-                {
-                    "intro_len": len(_safe_str((raw or {}).get("intro_markdown"))),
-                    "body_len": len(_safe_str((raw or {}).get("body_markdown"))),
-                },
-            )
-            # endregion
         except Exception as e2:
-            # region agent log
-            _debug_log(
-                "H22",
-                "agents/write_agent.py:generate_post:fallback_error",
-                "fallback failed",
-                {"error": str(e2), "error_type": type(e2).__name__},
-            )
-            # endregion
             # minimal non-empty fallback
-            outline_sections = _safe_list((brief.get("outline", {}) or {}).get("sections"))
+            outline_sections = safe_list((brief.get("outline", {}) or {}).get("sections"))
             intro_fallback = f"{main_kw}에 대해 핵심 흐름을 정리해보겠습니다. {target_reader}에게 필요한 맥락부터 차근히 짚어볼게요."
             body_parts = []
             for s in outline_sections[:5]:
@@ -924,76 +425,19 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
             }
 
     out = {
-        "title": _safe_str(title_out.get("title")) or _safe_str(raw.get("title")) or main_kw or "제목",
-        "summary": _safe_str(raw.get("intro_markdown")),
-        "post_markdown": _safe_str(raw.get("body_markdown")),
-        "meta_description": _safe_str(raw.get("meta_description")),
-        "hashtags": _safe_list(raw.get("hashtags")),
-        "outro": _safe_str(raw.get("outro")),
-        "image_guide": _safe_str(raw.get("image_guide")),
-        "evidence_notes": _safe_list(raw.get("evidence_notes")),
-        "intro_markdown": _safe_str(raw.get("intro_markdown")),
-        "body_markdown": _safe_str(raw.get("body_markdown")),
+        "title": safe_str(title_out.get("title")) or safe_str(raw.get("title")) or main_kw or "제목",
+        "summary": safe_str(raw.get("intro_markdown")),
+        "post_markdown": safe_str(raw.get("body_markdown")),
+        "meta_description": safe_str(raw.get("meta_description")),
+        "hashtags": safe_list(raw.get("hashtags")),
+        "outro": safe_str(raw.get("outro")),
+        "image_guide": safe_str(raw.get("image_guide")),
+        "evidence_notes": safe_list(raw.get("evidence_notes")),
+        "intro_markdown": safe_str(raw.get("intro_markdown")),
+        "body_markdown": safe_str(raw.get("body_markdown")),
         "image_plan": raw.get("image_plan") or image_plan,
         "package": raw.get("package"),
     }
-    # region agent log
-    def _heading_stats(text: str) -> Dict[str, Any]:
-        t = text or ""
-        return {
-            "count_h2": t.count("## "),
-            "count_h3": t.count("### "),
-            "has_inline_h2": bool(re.search(r"\S\s##\s", t)),
-        }
-
-    def _marker_stats(text: str) -> Dict[str, Any]:
-        t = text or ""
-        return {
-            "len": len(t),
-            "count_hash": t.count("#"),
-            "count_bold": t.count("**"),
-            "has_inline_hash": bool(re.search(r"\S\s##\s", t)),
-        }
-
-    _debug_log(
-        "H25",
-        "agents/write_agent.py:generate_post:heading_stats",
-        "heading/marker stats",
-        {
-            "intro_heading": _heading_stats(out.get("summary", "")),
-            "body_heading": _heading_stats(out.get("post_markdown", "")),
-            "intro_markers": _marker_stats(out.get("summary", "")),
-            "body_markers": _marker_stats(out.get("post_markdown", "")),
-        },
-    )
-    # endregion
-    # region agent log
-    _debug_log(
-        "H9",
-        "agents/write_agent.py:generate_post:after_normalize",
-        "normalized output metrics",
-        {
-            "title_len": len(_safe_str(out.get("title"))),
-            "summary_len": len(_safe_str(out.get("summary"))),
-            "post_len": len(_safe_str(out.get("post_markdown"))),
-            "summary_sentences": len(_split_sentences(_safe_str(out.get("summary")))),
-            "post_sentences": len(_split_sentences(_safe_str(out.get("post_markdown")))),
-        },
-    )
-    # endregion
-    # region agent log
-    _debug_log(
-        "H14",
-        "agents/write_agent.py:generate_post:raw_keys",
-        "raw output keys snapshot",
-        {
-            "raw_keys": list((raw or {}).keys()) if isinstance(raw, dict) else [],
-            "has_intro_markdown": bool((raw or {}).get("intro_markdown")) if isinstance(raw, dict) else False,
-            "has_body_markdown": bool((raw or {}).get("body_markdown")) if isinstance(raw, dict) else False,
-            "has_image_plan": bool((raw or {}).get("image_plan")) if isinstance(raw, dict) else False,
-        },
-    )
-    # endregion
 
     if not out.get("image_guide"):
         if img_tags:
@@ -1002,45 +446,33 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
             out["image_guide"] = "본문 중간에 이미지를 1~2장 배치하고 짧은 캡션을 추가하세요."
 
     if anti_ai_strong:
-        out["summary"] = _soften_ai_tone(out.get("summary", ""), True)
-        out["post_markdown"] = _soften_ai_tone(out.get("post_markdown", ""), True)
-        out["image_guide"] = _soften_ai_tone(out.get("image_guide", ""), True)
+        out["summary"] = soften_ai_tone(out.get("summary", ""), True)
+        out["post_markdown"] = soften_ai_tone(out.get("post_markdown", ""), True)
+        out["image_guide"] = soften_ai_tone(out.get("image_guide", ""), True)
 
-    polish_level = _safe_str(writing.get("polish_level") or "medium")
+    polish_level = safe_str(writing.get("polish_level") or "medium")
     humanize = bool(writing.get("humanize", True))
     auto_paragraph = bool(writing.get("auto_paragraph", True))
 
     if writing.get("title_polish", True):
-        out["title"] = _polish_title(out.get("title", ""), polish_level)
+        out["title"] = polish_title(out.get("title", ""), polish_level)
     if writing.get("intro_polish", True):
-        out["summary"] = _polish_text(out.get("summary", ""), polish_level, humanize, auto_paragraph)
+        out["summary"] = polish_text(out.get("summary", ""), polish_level, humanize, auto_paragraph)
     if writing.get("body_polish", True):
-        out["post_markdown"] = _polish_text(out.get("post_markdown", ""), polish_level, humanize, auto_paragraph)
+        out["post_markdown"] = polish_text(out.get("post_markdown", ""), polish_level, humanize, auto_paragraph)
 
     # 특수문자/마크다운 제거
-    out["summary"] = _strip_special_markers(out.get("summary", ""))
-    out["post_markdown"] = _strip_special_markers(out.get("post_markdown", ""))
-    out["outro"] = _strip_special_markers(out.get("outro", ""))
+    out["summary"] = strip_special_markers(out.get("summary", ""))
+    out["post_markdown"] = strip_special_markers(out.get("post_markdown", ""))
+    out["outro"] = strip_special_markers(out.get("outro", ""))
 
     # 본문 최소 길이 확보
-    before_len = len(_safe_str(out.get("post_markdown")))
+    before_len = len(safe_str(out.get("post_markdown")))
     out["post_markdown"] = _ensure_min_length(out.get("post_markdown", ""), 1500, client)
     # 문장 끝 마침표 보정
-    out["summary"] = _ensure_sentence_end(out.get("summary", ""))
-    out["post_markdown"] = _ensure_sentence_end(out.get("post_markdown", ""))
-    out["outro"] = _ensure_sentence_end(out.get("outro", ""))
-    # region agent log
-    _debug_log(
-        "H26",
-        "agents/write_agent.py:generate_post:enforce_length",
-        "body length enforced",
-        {
-            "before_len": before_len,
-            "after_len": len(_safe_str(out.get("post_markdown"))),
-            "ends_with_punct": _safe_str(out.get("post_markdown"))[-1:] in [".", "!", "?", "…", "。", "！", "？"],
-        },
-    )
-    # endregion
+    out["summary"] = ensure_sentence_end(out.get("summary", ""))
+    out["post_markdown"] = ensure_sentence_end(out.get("post_markdown", ""))
+    out["outro"] = ensure_sentence_end(out.get("outro", ""))
 
     out["intro_markdown"] = out.get("summary")
     out["body_markdown"] = out.get("post_markdown")
@@ -1050,29 +482,14 @@ def generate_post(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) ->
         out["hashtags"] = []
 
     if writing.get("outro_reco", True):
-        if not out.get("outro") or len(_safe_str(out.get("outro"))) < 20:
-            target_reader = _safe_str((options.get("detail", {}) or {}).get("target_reader", {}).get("text"))
+        if not out.get("outro") or len(safe_str(out.get("outro"))) < 20:
+            target_reader = safe_str((options.get("detail", {}) or {}).get("target_reader", {}).get("text"))
             out["outro"] = _recommend_outro(main_kw, target_reader)
 
     if writing.get("hashtag_reco", True):
         if not out.get("hashtags"):
-            sub_kws = _safe_list((brief.get("keywords", {}) or {}).get("sub"))
+            sub_kws = safe_list((brief.get("keywords", {}) or {}).get("sub"))
             out["hashtags"] = _recommend_hashtags(main_kw, sub_kws, img_tags)
-
-    # region agent log
-    _debug_log(
-        "H10",
-        "agents/write_agent.py:generate_post:after_polish",
-        "post-polish metrics",
-        {
-            "title_len": len(_safe_str(out.get("title"))),
-            "summary_len": len(_safe_str(out.get("summary"))),
-            "post_len": len(_safe_str(out.get("post_markdown"))),
-            "summary_sentences": len(_split_sentences(_safe_str(out.get("summary")))),
-            "post_sentences": len(_split_sentences(_safe_str(out.get("post_markdown")))),
-        },
-    )
-    # endregion
 
     return {
         "title": out["title"],

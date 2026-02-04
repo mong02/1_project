@@ -1,16 +1,15 @@
+# Ollama 호출 공통 함수 
+# 에러 처리
+# 모델 설정
+# 중요! AI 호출은 여기서만!
 
 # ollama_client.py
-
-# (주의) 이름은 OllamaClient지만, 실제로는 API_MODE에 따라 OpenAI/Ollama로 분기
-# topic_agent.py / write_agent.py가 이 클래스를 import 하므로 인터페이스를 유지
-
 import json
 import re
 from typing import Any, Dict, Optional
 
+import ollama
 from config import MODEL_TEXT
-
-from agents.llm_client import chat_text
 
 
 class OllamaClient:
@@ -19,7 +18,6 @@ class OllamaClient:
 
     @staticmethod
     def _strip_code_fences(text: str) -> str:
-        # ```json ... ``` / ``` ... ``` 제거
         text = re.sub(r"^\s*```(?:json)?\s*", "", text, flags=re.IGNORECASE)
         text = re.sub(r"\s*```\s*$", "", text)
         return text.strip()
@@ -43,7 +41,7 @@ class OllamaClient:
         except Exception:
             pass
 
-        # 일반 경로: 첫 '{'부터 균형 잡힌 '}'까지 추출
+        # 일반 경로
         start = text.find("{")
         if start == -1:
             raise ValueError(f"JSON 시작 '{{'를 찾지 못했습니다. 일부: {text[:200]}")
@@ -90,14 +88,18 @@ class OllamaClient:
         temperature: float = 0.4,
         top_p: float = 0.9,
     ) -> str:
-        # OpenAI/Ollama 공통 라우터 호출
-        return chat_text(
-            user_prompt=prompt,
-            system_prompt=system_role,
+        res = ollama.chat(
             model=self.model,
-            temperature=temperature,
-            top_p=top_p,
+            messages=[
+                {"role": "system", "content": system_role},
+                {"role": "user", "content": prompt},
+            ],
+            options={
+                "temperature": temperature,
+                "top_p": top_p,
+            },
         )
+        return (res.get("message") or {}).get("content", "") or ""
 
     def generate_json(
         self,
@@ -119,7 +121,7 @@ class OllamaClient:
         last_err: Optional[Exception] = None
         cur_prompt = f"{json_guard}\n\n{prompt}"
 
-        for _ in range(retries + 1):
+        for attempt in range(retries + 1):
             text = self.generate_text(
                 system_role=system_role,
                 prompt=cur_prompt,
@@ -130,6 +132,7 @@ class OllamaClient:
                 return self._extract_first_json_object(text)
             except Exception as e:
                 last_err = e
+                # 다음 시도에서 더 강하게 교정
                 cur_prompt = (
                     f"{json_guard}\n\n"
                     f"[주의] 직전 출력은 JSON 형식이 아닙니다. JSON 객체만 다시 출력하세요.\n\n"
@@ -137,5 +140,3 @@ class OllamaClient:
                 )
 
         raise last_err if last_err else ValueError("JSON 생성 실패")
-
-

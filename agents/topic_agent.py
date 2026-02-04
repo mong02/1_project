@@ -1,164 +1,122 @@
-# topic_agent.py
 # 카테고리 - 세부 주제
 # 세부 주제 - 제목 후보
 
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional
+import requests
+from typing import Any, Dict, List
 
-from config import MODEL_TEXT
-
+from config import TARGET_CHARS, MODEL_TEXT
 from agents.ollama_client import OllamaClient
+from utils.prompt_loader import load_and_render_prompt
+from utils.text_utils import safe_list
 
 
-def _safe_list(x) -> List[str]:
-    return x if isinstance(x, list) else []
 
+class TopicAgent:
+    def __init__(self, client):
+        # Ollama와 대화할 수 있는 클라이언트를 가져옵니다.
+        self.client = client
+        # 프롬프트가 저장된 폴더 이름이에요.
+        self.folder = "prompts"
 
-def _safe_str(x: Any) -> str:
-    return str(x).strip() if x is not None else ""
-
-
-def _compact_join(parts: List[str], sep: str = " ") -> str:
-    return sep.join([p for p in parts if p])
-
-
-def _unique_list(items: List[str]) -> List[str]:
-    seen = set()
-    out = []
-    for item in items:
-        key = item.strip()
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        out.append(key)
-    return out
-
-
-_PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z0-9_]+)\}")
-
-
-def _render_prompt(template: str, data: Dict[str, Any]) -> str:
-    """
-    prompts/*.md 안의 {placeholder}를 data로 안전 치환
-    - 없는 키는 빈 문자열
-    - dict/list는 JSON 문자열로 넣음
-    """
-    if not template:
+    def read_file(self, file_name):
+        """폴더에서 마크다운 파일을 읽어오는 간단한 함수입니다."""
+        path = f"{self.folder}/{file_name}.md"
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
         return ""
 
-    def _value(k: str) -> str:
-        v = data.get(k)
-        if v is None:
-            return ""
-        if isinstance(v, (dict, list)):
-            return json.dumps(v, ensure_ascii=False, indent=2)
-        return _safe_str(v)
+    def suggest_topics(self, category, job):
+        """1. 카테고리를 보고 제목 후보 5개를 제안합니다."""
+        # 파일에서 지침서를 읽어옵니다.
+        prompt = self.read_file("topic_titles")
+        
+        # 지침서 안의 빈칸({category}, {job})을 실제 내용으로 채웁니다.
+        prompt = prompt.replace("{category}", category)
+        prompt = prompt.replace("{job}", job)
+        
+        # AI에게 물어보고 결과를 받습니다.
+        result = self.client.generate_json("주제 기획자", prompt)
+        
+        # AI가 리스트 형식이 아니라 엉뚱하게 줄 때를 대비한 '정규화'
+        if isinstance(result, list):
+            return result[:5]
+        elif isinstance(result, dict):
+            return result.get("topics", ["제목 생성 실패"])
+        
+        return ["추천 제목 1", "추천 제목 2", "추천 제목 3"]
 
-    def _sub(m: re.Match) -> str:
-        key = m.group(1)
-        return _value(key)
+    def generate_plan(self, topic, job, mbti):
+        """2. 선택한 제목으로 블로그 설계도를 만듭니다."""
+        # 설계도 작성용 지침서를 읽어옵니다.
+        prompt = self.read_file("outline")
+        
+        # 빈칸 채우기
+        prompt = prompt.replace("{topic}", topic)
+        prompt = prompt.replace("{job}", job)
+        prompt = prompt.replace("{mbti}", mbti)
+        
+        # AI 호출
+        raw_data = self.client.generate_json("콘텐츠 전략가", prompt)
+        
+        # [정규화] 데이터가 비어있어도 UI가 안 깨지게 기본값을 채워줍니다.
+        # .get("키이름", "기본값")을 쓰면 데이터가 없어도 에러가 안 나요!
+        plan = {
+            "targetSituation": raw_data.get("targetSituation", "정보를 찾는 독자"),
+            "format": raw_data.get("format", "정보 전달형"),
+            "tone": raw_data.get("tone", "차분한 말투"),
+            "keywords": raw_data.get("keywords", {"main": topic, "sub": []})
+        }
+        
+        return plan
 
-    return _PLACEHOLDER_RE.sub(_sub, template)
 
-
-def generate_design_brief(ctx: Dict[str, Any], client: Optional[OllamaClient] = None) -> Dict[str, Any]:
+def generate_design_brief(ctx: Dict[str, Any], client: OllamaClient | None = None) -> Dict[str, Any]:
     if client is None:
         client = OllamaClient(model=MODEL_TEXT)
 
-    persona = ctx.get("persona", {}) or {}
-    topic_flow = ctx.get("topic_flow", {}) or {}
-    options = ctx.get("options", {}) or {}
-    final_options = ctx.get("final_options", {}) or {}
+    persona = ctx.get("persona", {})
+    topic_flow = ctx.get("topic_flow", {})
+    options = ctx.get("options", {})
+    final_options = ctx.get("final_options", {})
 
     selected_title = (topic_flow.get("title", {}) or {}).get("selected")
     input_keyword = (topic_flow.get("title", {}) or {}).get("input_keyword")
-    selected_source = (topic_flow.get("title", {}) or {}).get("selected_source")
     main_kw = selected_title or input_keyword or ""
 
     toggles = final_options.get("toggles", {}) or {}
     seo_opt = bool(toggles.get("seo_opt", False))
 
-    detail = options.get("detail", {}) or {}
-    region_scope = _safe_str((detail.get("region_scope", {}) or {}).get("text"))
-    target_reader = _safe_str((detail.get("target_reader", {}) or {}).get("text"))
-    target_situation = _safe_str((detail.get("target_situation", {}) or {}).get("text"))
-
-    main_kw_base = _safe_str(selected_title or input_keyword)
-    main_kw = _compact_join([main_kw_base, region_scope]) or main_kw_base or region_scope
-
-    sub_candidates = _unique_list(
-        [
-            main_kw_base,
-            region_scope,
-            target_reader,
-            target_situation,
-        ]
-    )
-
-    target_chars = 1550
-
-    img_analysis = (topic_flow.get("images", {}) or {}).get("analysis", {}) or {}
-    img_mood = _safe_str(img_analysis.get("mood"))
-    img_tags = [str(x).strip() for x in _safe_list(img_analysis.get("tags")) if str(x).strip()]
-    img_source = img_analysis.get("source") or ("image_analysis" if (img_mood or img_tags) else None)
-
-    tone_raw = persona.get("tone")
-    if isinstance(tone_raw, dict):
-        tone_custom = tone_raw.get("custom_text")
-        tone_field = tone_raw
-    else:
-        tone_custom = persona.get("tone_text")
-        tone_field = {}
-
-    mbti_raw = persona.get("mbti")
-    if isinstance(mbti_raw, dict):
-        mbti_value = mbti_raw.get("type")
-    else:
-        mbti_value = mbti_raw
-
-    role_job = persona.get("role_job") or "작성자"
-    tone_persona = _safe_str(tone_custom)
-    tone_summary = ""
-    tone_rules = []
-
-    persona_tone = _safe_str(tone_custom)
-    mood_value = img_mood or persona_tone
-    mood_source = "image_analysis" if img_mood else ("persona_tone" if persona_tone else None)
-
-    if selected_title:
-        main_kw_source = selected_source or "unknown"
-    elif input_keyword:
-        main_kw_source = "input_keyword"
-    else:
-        main_kw_source = "unknown"
+    target_chars = int((ctx.get("design_brief", {}) or {}).get("length", {}).get("target_chars") or TARGET_CHARS)
 
     facts = {
         "persona": {
-            "role_job": role_job,
-            "tone": tone_field,
-            "tone_text": persona_tone,
-            "mbti": mbti_value,
-            "avoid_keywords": _safe_list(persona.get("avoid_keywords")),
+            "role_job": persona.get("role_job"),
+            "tone": (persona.get("tone", {}) or {}).get("custom_text") or (persona.get("tone", {}) or {}).get("preset") or "일반적인 어조",
+            "mbti": (persona.get("mbti", {}) or {}).get("type"),
+            "avoid_keywords": safe_list(persona.get("avoid_keywords")),
         },
         "topic": {
             "category": (topic_flow.get("category", {}) or {}).get("selected"),
             "subtopic": (topic_flow.get("category", {}) or {}).get("selected_subtopic"),
             "title": selected_title,
             "input_keyword": input_keyword,
-            "image_mood": img_mood,
-            "image_tags": img_tags,
-            "title_source": selected_source,
-            "main_keyword_source": main_kw_source,
         },
         "options": {
             "post_type": options.get("post_type"),
             "headline_style": options.get("headline_style"),
-            "region_scope": region_scope,
-            "target_reader": target_reader,
-            "target_situation": target_situation,
-            "extra_request": (detail.get("extra_request", {}) or {}).get("text"),
+            "target_reader": (options.get("detail", {}) or {}).get("target_reader", {}).get("text"),
+            "region_scope": (options.get("detail", {}) or {}).get("region_scope", {}).get("text"),
+            "extra_request": (options.get("detail", {}) or {}).get("extra_request", {}).get("text"),
+            "seo_opt": bool(final_options.get("toggles", {}).get("seo_opt")),
+            #####step3.option 코드 추가
+            "evidence_label": bool(final_options.get("toggles", {}).get("evidence_label")),
+            "publish_package": bool(final_options.get("toggles", {}).get("publish_package")),
+            "ai_tone_remove_strong": bool(final_options.get("toggles", {}).get("ai_tone_remove_strong")),
+            "image_hashtag": bool(final_options.get("toggles", {}).get("image_hashtag")),
         },
         "constraints": {
             "target_chars": target_chars,
@@ -176,93 +134,80 @@ def generate_design_brief(ctx: Dict[str, Any], client: Optional[OllamaClient] = 
         "strategy": {"text": "string", "seo": {"enabled": "boolean", "notes": "string"}, "hashtags": ["string"]},
     }
 
-    template = ""
-    template_path = os.path.join("prompts", "outline.md")
-    if os.path.exists(template_path):
-        with open(template_path, "r", encoding="utf-8") as f:
-            template = f.read()
-
-    placeholders = {
-        "topic": selected_title or input_keyword or "",
-        "category": (topic_flow.get("category", {}) or {}).get("selected") or "",
-        "subtopic": (topic_flow.get("category", {}) or {}).get("selected_subtopic") or "",
-        "title": selected_title or "",
-        "job": persona.get("role_job") or "",
-        "mbti": mbti_value or "",
-        "post_type": options.get("post_type") or "",
-        "headline_style": options.get("headline_style") or "",
-        "region_scope": region_scope,
-        "target_reader": target_reader,
-        "target_situation": target_situation,
-        "extra_request": (detail.get("extra_request", {}) or {}).get("text") or "",
-    }
-
-    rendered_template = _render_prompt(template, placeholders).strip()
-
-    base_prompt = f"""
+    # 프롬프트 파일에서 로드 시도
+    try:
+        prompt_template = load_and_render_prompt("design_brief", {
+            "topic": main_kw,
+            "category": facts["topic"]["category"] or "",
+            "subtopic": facts["topic"]["subtopic"] or "",
+            "title": selected_title or "",
+            "job": facts["persona"]["role_job"] or "",
+            "mbti": facts["persona"]["mbti"] or "",
+            "post_type": facts["options"]["post_type"] or "",
+            "headline_style": facts["options"]["headline_style"] or "",
+            "region_scope": facts["options"]["region_scope"] or "",  
+            "target_reader": facts["options"]["target_reader"] or "",
+            "target_situation": "", # 별도 입력 필드 없음 (extra_request 등으로 대체 가능) 
+            "extra_request": facts["options"]["extra_request"] or "",
+            "tone": facts["persona"]["tone"] or "정중한 존댓말",
+        })
+        
+        # FACTS와 schema_hint 추가
+        prompt = f"""{prompt_template}
+[추가 FACTS]
+{json.dumps(facts, ensure_ascii=False, indent=2)}
+[OUTPUT SCHEMA HINT]
+{json.dumps(schema_hint, ensure_ascii=False, indent=2)}
+"""
+    except Exception as e:
+        # 폴백: 기존 하드코딩 프롬프트 유지
+        prompt = f"""
 너는 블로그 설계안을 만드는 콘텐츠 전략가다.
 출력은 반드시 JSON 객체 한 덩어리만. (설명/코드블록 금지)
 모든 문장은 존댓말로 작성하라. 반말은 절대 금지.
 
+아래 FACTS를 기반으로 반드시 다음을 포함해 설명하라:
+- 타겟 상황: 다정한 존댓말로 2줄, 실제 상황 설명만 작성
+- 톤앤매너: 다정한 존댓말로 2줄, 페르소나를 반영한 결과 설명만 작성
+- 글 구성: 다정한 존댓말로 2줄, 섹션의 목적과 전개 흐름을 실제 내용으로 설명
+- 전략: 다정한 존댓말로 2줄, 타겟 독자/추가 요청/SEO 옵션을 반영한 실행 전략을 설명
+
+금지 규칙:
+- "예를 들어", "설명할게/하겠다" 같은 메타 문장 금지
+- 지시문을 반복하거나 형식을 설명하는 문장 금지
+- 키워드 나열 금지, 실제 내용만 문장으로 작성
+
 [FACTS]
-{facts}
-
-[MAPPING GUIDANCE]
-- keywords.main: '글 제목/키워드'와 '지역/범위'를 참고해 1개 추천
-- keywords.sub: '글 제목/키워드' + '지역/범위' + '타겟 독자'를 조합해 5~8개 추천 (해시태그용, 중복/나열 금지)
-- target_context: '글 제목/키워드' + '타겟 상황' + '지역/범위'를 요약해 1~2문장 추천
-- tone_manner: 페르소나(직업/MBTI/톤 성격)를 반영해 요약/규칙 작성
-- length.target_chars: 공백 제외 1500~1600자 내외로 고정
-- outline/strategy: 위 입력을 종합해 실제 글 구성과 전략을 추천
-
+{json.dumps(facts, ensure_ascii=False, indent=2)}
 [OUTPUT SCHEMA HINT]
-{schema_hint}
+{json.dumps(schema_hint, ensure_ascii=False, indent=2)}
 """.strip()
 
-    prompt = f"{rendered_template}\n\n{base_prompt}" if rendered_template else base_prompt
-
-    out = client.generate_json("콘텐츠 전략가", prompt)
-    if not isinstance(out, dict):
-        out = {}
-
-    inputs = {
-        "mood": {"value": mood_value, "source": mood_source},
-        "image_tags": {"values": img_tags, "source": img_source},
-        "title": {"value": selected_title or "", "source": selected_source or None},
-        "keywords": {"main": main_kw or "", "main_source": main_kw_source, "sub": sub_candidates},
-        "options": {
-            "post_type": options.get("post_type") or "",
-            "headline_style": options.get("headline_style") or "",
-            "region_scope": region_scope,
-            "target_situation": target_situation,
-            "target_reader": target_reader,
-            "extra_request": (detail.get("extra_request", {}) or {}).get("text") or "",
-        },
-        "constraints": {"target_chars": target_chars, "seo_opt": seo_opt},
-    }
-
-    sub_keyword_sources = [{"value": k, "source": "mapped_from_step2"} for k in sub_candidates if str(k).strip()]
+    try:
+        out = client.generate_json("콘텐츠 전략가", prompt)
+    except Exception as e:
+        raise
 
     result = {
         "status": "ready",
         "error": None,
         "applied_persona_text": out.get("applied_persona_text") or "",
         "keywords": {
-            "main": (out.get("keywords", {}) or {}).get("main") or main_kw or "",
-            "sub": _safe_list((out.get("keywords", {}) or {}).get("sub")),
+            "main": (out.get("keywords", {}) or {}).get("main") or main_kw,
+            "sub": safe_list((out.get("keywords", {}) or {}).get("sub")),
         },
         "target_context": {"text": (out.get("target_context", {}) or {}).get("text") or ""},
         "tone_manner": {
             "summary": (out.get("tone_manner", {}) or {}).get("summary") or "",
-            "rules": _safe_list((out.get("tone_manner", {}) or {}).get("rules")),
+            "rules": safe_list((out.get("tone_manner", {}) or {}).get("rules")),
         },
         "outline": {
             "summary": (out.get("outline", {}) or {}).get("summary") or "",
-            "sections": _safe_list((out.get("outline", {}) or {}).get("sections")),
+            "sections": safe_list((out.get("outline", {}) or {}).get("sections")),
         },
         "length": {
-            "target_chars": 1550,
-            "note": "공백 제외 약 1500~1600자 내외",
+            "target_chars": int((out.get("length", {}) or {}).get("target_chars") or target_chars),
+            "note": (out.get("length", {}) or {}).get("note") or "",
         },
         "strategy": {
             "text": (out.get("strategy", {}) or {}).get("text") or "",
@@ -270,29 +215,105 @@ def generate_design_brief(ctx: Dict[str, Any], client: Optional[OllamaClient] = 
                 "enabled": bool((out.get("strategy", {}) or {}).get("seo", {}).get("enabled", seo_opt)),
                 "notes": (out.get("strategy", {}) or {}).get("seo", {}).get("notes") or "",
             },
-            "hashtags": _safe_list((out.get("strategy", {}) or {}).get("hashtags")),
+            "hashtags": safe_list((out.get("strategy", {}) or {}).get("hashtags")),
         },
-        "inputs": inputs,
-        "sources": {
-            "from_step1": {
-                "role_job": persona.get("role_job"),
-                "tone_text": persona_tone,
-                "mbti": mbti_value,
-                "avoid_keywords": _safe_list(persona.get("avoid_keywords")),
-            },
-            "from_step2": {
-                "title": {"value": selected_title, "source": selected_source},
-                "category": (topic_flow.get("category", {}) or {}).get("selected"),
-                "subtopic": (topic_flow.get("category", {}) or {}).get("selected_subtopic"),
-                "image": {"mood": img_mood, "tags": img_tags, "source": img_source},
-            },
-            "keyword_sources": {
-                "main": {"value": main_kw, "source": main_kw_source},
-                "sub": sub_keyword_sources,
-            },
-            "agent_raw": out,
-        },
+        "sources": {"from_step1": {}, "from_step2": {}, "agent_raw": out},
         "updated_at": None,
     }
+
+    return result
+
+
+# 수정( 스텝1 블로그 분석 코드)
+def _fetch_url_text(url: str, max_chars: int = 6000) -> str:
+    """
+    URL의 HTML을 받아서 대충 텍스트만 뽑아옵니다.
+    (완벽한 크롤링이 아니라 '스타일 분석용 요약 텍스트'만 추출하는 목적)
+    """
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        r = requests.get(url, headers=headers, timeout=8)
+        r.raise_for_status()
+        html = r.text
+
+        # script/style 제거
+        html = re.sub(r"<script.*?>.*?</script>", " ", html, flags=re.S)
+        html = re.sub(r"<style.*?>.*?</style>", " ", html, flags=re.S)
+
+        # 태그 제거(아주 단순)
+        text = re.sub(r"<[^>]+>", " ", html)
+        text = re.sub(r"\s+", " ", text).strip()
+
+        return text[:max_chars]
+    except Exception:
+        return ""
+
+
+def analyze_blog_style(blog_url: str, client: OllamaClient | None = None) -> Dict[str, Any]:
+    """
+    Step1에서 입력된 블로그 URL을 실제로 읽고(가능하면) 스타일을 분석합니다.
+    반환 스키마(권장):
+      {
+        "tone": "...",
+        "structure": "...",
+        "feel": "..."
+      }
+    """
+    if client is None:
+        client = OllamaClient(model=MODEL_TEXT)
+
+    # 1) 프롬프트(md) 읽기: prompts/blog_style_analysis.md
+    try:
+        base_prompt = load_and_render_prompt("blog_style_analysis", {"blog_url": blog_url, "page_text": ""})
+    except FileNotFoundError:
+        # md 없을 때 최소 프롬프트(백업)
+        base_prompt = """
+너는 블로그 문체 분석가다.
+아래 INPUT을 보고 말투/구성/느낌을 한국어로 요약해라.
+출력은 반드시 JSON만.
+키는 tone, structure, feel.
+""".strip()
+
+    # 2) URL에서 텍스트 가져오기(가능한 경우)
+    page_text = _fetch_url_text(blog_url)
+
+    # 3) LLM에게 줄 입력 구성
+    #    - 블로그 내용이 제대로 못 가져와질 수 있으니 url도 같이 보냄
+    prompt = f"""
+{base_prompt}
+
+[INPUT_URL]
+{blog_url}
+
+[INPUT_TEXT_EXCERPT]
+{page_text if page_text else "(본문을 가져오지 못했습니다. URL과 일반적인 블로그 문체 신호로 추정하되, 불확실하면 그렇게 명시하세요.)"}
+
+[OUTPUT FORMAT]
+반드시 JSON 객체 한 덩어리만 출력:
+{{
+  "tone": "말투 1줄",
+  "structure": "구성 1줄",
+  "feel": "느낌 1줄"
+}}
+""".strip()
+
+    out = client.generate_json("블로그 문체 분석가", prompt)
+
+    # 4) 정규화(키가 조금 달라도 UI가 안깨지게)
+    result = {
+        "tone": out.get("tone") or out.get("말투") or "",
+        "structure": out.get("structure") or out.get("구성") or out.get("writingStyle") or "",
+        "feel": out.get("feel") or out.get("느낌") or out.get("impression") or "",
+    }
+
+    # 완전 비었으면 fallback
+    if not any(result.values()):
+        result = {
+            "tone": "분석 실패(데이터 부족)",
+            "structure": "분석 실패(데이터 부족)",
+            "feel": "분석 실패(데이터 부족)",
+        }
 
     return result
