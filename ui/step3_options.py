@@ -135,7 +135,13 @@ def render(ctx: dict):
     persona = ctx.get("persona", {}) or {}
     topic_flow = ctx.get("topic_flow", {}) or {}
 
-    st.title("설계안")
+    # st.title("설계안")
+    st.markdown("""
+    <div class="curry-header-only">
+        <span class="title">설계안</span>
+        <span class="subtitle">선택한 내용 기준으로 정리된 글 구조입니다</span>
+    </div>
+    """, unsafe_allow_html=True)
     st.caption("선택한 내용 기준으로 글 구조를 정리했습니다.")
     _inject_styles()
 
