@@ -116,7 +116,13 @@ def render_photo_intent_section(topic_flow):
 
 def render_title_input_section(topic_flow):
     """글 제목 입력 섹션 - 16pt 볼드 강조 스타일 사용"""
-    st.markdown('<div class="icon-label" style="margin-top:15px; margin-bottom:15px;">글 제목 또는 키워드</div>', unsafe_allow_html=True)
+    # st.markdown('<div class="icon-label" style="margin-top:15px; margin-bottom:15px;">글 제목 또는 키워드</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="curry-header-only" style="margin-top:15px; margin-bottom:15px;">
+        <span class="title">글 제목 또는 키워드</span>
+        <span class="subtitle">독자의 눈길을 사로잡을 한 줄</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 전용 컨테이너 마커 적용 (CSS에서 .title-input-container 하위 요소를 스타일링함)
     st.markdown('<div class="title-input-container">', unsafe_allow_html=True)
@@ -180,7 +186,13 @@ def render_step2(ctx):
     # 1. 이미지 업로드 섹션
     # -------------------------------------------------
     with st.container(border=True):
-        st.markdown('<div class="icon-label">블로그 사진 추가 (선택)</div>', unsafe_allow_html=True)
+        # st.markdown('<div class="icon-label">블로그 사진 추가 (선택)</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="curry-header-only">
+            <span class="title">블로그 사진 추가 (선택)</span>
+            <span class="subtitle">글의 재료가 될 사진을 넣어주세요</span>
+        </div>
+        """, unsafe_allow_html=True)
 
         uploaded_files = st.file_uploader(
             "요리에 넣을 사진 재료를 골라주세요 (최대 10장)",
@@ -334,7 +346,13 @@ def render_step2(ctx):
     # -------------------------------------------------
     with st.container(border=True):
         st.markdown('<div class="category-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="icon-label">카테고리 선택</div>', unsafe_allow_html=True)
+        # st.markdown('<div class="icon-label">카테고리 선택</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="curry-header-only">
+            <span class="title">카테고리 선택</span>
+            <span class="subtitle">오늘의 요리 주제를 골라보세요</span>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown('<div class="category-grid-marker" style="display:none;"></div>', unsafe_allow_html=True)
 
 
@@ -489,7 +507,13 @@ def render_step2(ctx):
     # 5. 상세 설정
     # -------------------------------------------------
     with st.container(border=True):
-        st.markdown('<div class="icon-label" style="margin-top:5px; margin-bottom:10px;">추가 상세 설정 (선택)</div>', unsafe_allow_html=True)
+        # st.markdown('<div class="icon-label" style="margin-top:5px; margin-bottom:10px;">추가 상세 설정 (선택)</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="curry-header-only">
+            <span class="title">추가 상세 설정 (선택)</span>
+            <span class="subtitle">맛을 더 풍부하게 만드는 양념치기</span>
+        </div>
+        """, unsafe_allow_html=True)
 
         with st.expander("더 많은 설정 옵션 보기", expanded=False):
             st.markdown('<div style="margin-top:15px;"></div>', unsafe_allow_html=True)
